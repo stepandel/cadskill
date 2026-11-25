@@ -1,0 +1,17 @@
+{
+  "name": "claude-3d-modeling-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CAD Bench: a browser-only CAD viewer and parametric bench that runs the OpenCASCADE kernel as WebAssembly. Built to be published as a Claude artifact.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "serve": "node scripts/serve.mjs",
+    "start": "npm run build && npm run serve",
+    "test": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "occt-wasm": "5.18.5",
+    "three": "0.187.0"
+  }
+}

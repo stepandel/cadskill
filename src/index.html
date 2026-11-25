@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAD Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one-screen bench. Title strip on top, parts and parameters in a left rail, the model fills the rest. */
+  :root {
+    --paper: #e9edf1;
+    --panel: #f7f9fa;
+    --ink: #17212b;
+    --muted: #586573;
+    --rule: #cfd7df;
+    --accent: #1b5fc9;
+    --accent-ink: #ffffff;
+    --model: #8d9aa8;
+    --bad: #b3261e;
+    --display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #11161b;
+      --panel: #19212a;
+      --ink: #e4eaf0;
+      --muted: #94a2b0;
+      --rule: #2b3642;
+      --accent: #6ea8ff;
+      --accent-ink: #0b1420;
+      --model: #9aa8b6;
+      --bad: #ff8a80;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #11161b;
+    --panel: #19212a;
+    --ink: #e4eaf0;
+    --muted: #94a2b0;
+    --rule: #2b3642;
+    --accent: #6ea8ff;
+    --accent-ink: #0b1420;
+    --model: #9aa8b6;
+    --bad: #ff8a80;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 14px/1.45 var(--body);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 300px 1fr;
+    grid-template-areas: "bar bar" "rail view";
+  }
+  header {
+    grid-area: bar;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--rule);
+  }
+  h1 {
+    font: 600 18px/1 var(--display);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .source { color: var(--muted); min-width: 0; overflow-wrap: anywhere; flex: 1 1 160px; }
+  .source b { color: var(--ink); font-weight: 500; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  button, .filebtn {
+    font: 500 13px/1 var(--body);
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  button:hover, .filebtn:hover { border-color: var(--accent); }
+  button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .filebtn { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); position: relative; display: inline-block; }
+  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  aside {
+    grid-area: rail;
+    background: var(--panel);
+    border-right: 1px solid var(--rule);
+    overflow-y: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  section { padding: 14px 16px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 10px; }
+  h2 {
+    font: 600 12px/1 var(--display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  h2 span { font: 400 12px/1 var(--mono); letter-spacing: 0; text-transform: none; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0; }
+
+  .param { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; }
+  .param label { font-size: 13px; }
+  .param output { font: 500 13px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .param input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
+
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
+  dt { color: var(--muted); font-size: 13px; }
+  dd { margin: 0; font: 400 13px/1.45 var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+  #tree { display: flex; flex-direction: column; gap: 2px; }
+  .group { font: 600 12px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 8px 0 4px; display: flex; align-items: center; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 8px; border-radius: 4px; padding: 0 4px 0 0; }
+  .row input, .group input { accent-color: var(--accent); margin: 0; }
+  .row button { flex: 1; text-align: left; border: 0; padding: 6px 6px; font: 400 13px/1.2 var(--mono); border-radius: 4px; overflow-wrap: anywhere; }
+  .row button:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .row.on button { background: var(--accent); color: var(--accent-ink); }
+  .chip { width: 10px; height: 10px; border-radius: 2px; flex: none; border: 1px solid var(--rule); }
+
+  main { grid-area: view; position: relative; min-height: 0; min-width: 0; }
+  #stage { position: absolute; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #status {
+    position: absolute; left: 16px; bottom: 16px; right: 16px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    font: 400 12px/1.4 var(--mono); color: var(--muted);
+    pointer-events: none;
+  }
+  #status .msg { background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 10px; }
+  #status .msg.bad { color: var(--bad); border-color: var(--bad); }
+  #meter { width: 160px; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+  #meter i { display: block; height: 100%; width: 0; background: var(--accent); }
+  #drop {
+    position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 8px;
+    display: none; align-items: center; justify-content: center;
+    font: 600 16px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
+    background: color-mix(in srgb, var(--paper) 80%, transparent);
+  }
+  main.dragging #drop { display: flex; }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 720px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto minmax(280px, 55%) 1fr; grid-template-areas: "bar" "view" "rail"; }
+    aside { border-right: 0; border-top: 1px solid var(--rule); }
+  }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js" } }
+</script>
+</head>
+<body>
+<header>
+  <h1>CAD Bench</h1>
+  <div class="source" id="source">Sample part, built in your browser</div>
+  <div class="tools">
+    <label class="filebtn">Open STEP file<input type="file" id="file" accept=".step,.stp,.STEP,.STP"></label>
+    <button type="button" id="sample">Sample part</button>
+    <button type="button" id="fit">Fit view</button>
+    <button type="button" id="edges" aria-pressed="true">Edges</button>
+  </div>
+</header>
+
+<aside>
+  <section id="params">
+    <h2>Parameters <span>mm</span></h2>
+    <div class="param"><label for="p-length">Length</label><output id="o-length">40</output><input type="range" id="p-length" min="20" max="80" step="1" value="40"></div>
+    <div class="param"><label for="p-width">Width</label><output id="o-width">24</output><input type="range" id="p-width" min="12" max="50" step="1" value="24"></div>
+    <div class="param"><label for="p-thickness">Thickness</label><output id="o-thickness">6</output><input type="range" id="p-thickness" min="2" max="16" step="0.5" value="6"></div>
+    <div class="param"><label for="p-hole">Hole Ø</label><output id="o-hole">8</output><input type="range" id="p-hole" min="0" max="20" step="0.5" value="8"></div>
+    <div class="param"><label for="p-corner">Corner radius</label><output id="o-corner">4</output><input type="range" id="p-corner" min="0" max="10" step="0.5" value="4"></div>
+    <p class="hint">Each change rebuilds the solid from these five numbers: box, rounded corners, drilled hole.</p>
+  </section>
+
+  <section>
+    <h2>Selection</h2>
+    <dl id="detail">
+      <dt>Part</dt><dd id="d-name">Nothing selected</dd>
+      <dt>Size</dt><dd id="d-size">Click a part in the view or the list</dd>
+      <dt>Volume</dt><dd id="d-vol">&nbsp;</dd>
+      <dt>Mesh</dt><dd id="d-tri">&nbsp;</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Parts <span id="count">0</span></h2>
+    <div class="tools">
+      <button type="button" id="isolate" disabled>Show only selected</button>
+      <button type="button" id="showall">Show all</button>
+    </div>
+    <div id="tree"></div>
+  </section>
+</aside>
+
+<main id="main">
+  <div id="stage"></div>
+  <div id="drop">Drop a STEP file to open it</div>
+  <div id="status"><span class="msg" id="msg">Loading the geometry kernel</span><span id="meter"><i></i></span></div>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/three/OrbitControls.js';
+
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+/* ---------- viewer ---------- */
+const stage = $('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 10000);
+camera.up.set(0, 0, 1);                       // CAD convention: Z is up
+camera.position.set(90, -120, 80);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = false;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x5a6470, 1.1));
+const key = new THREE.DirectionalLight(0xffffff, 1.6);
+camera.add(key); key.position.set(-0.6, 0.9, 1);
+scene.add(camera);
+const model = new THREE.Group();
+scene.add(model);
+
+let queued = false;
+function draw() { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; renderer.render(scene, camera); }); }
+controls.addEventListener('change', draw);
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  draw();
+}
+new ResizeObserver(resize).observe(stage);
+
+function applyTheme() {
+  scene.background = new THREE.Color(css('--paper'));
+  const edge = new THREE.Color(css('--ink'));
+  for (const p of parts) { p.lines.material.color.copy(edge); paint(p); }
+  draw();
+}
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+/* ---------- model state ---------- */
+let parts = [];          // { name, path, mesh, lines, size, volume, approx, triangles, base, row, box }
+let selected = null;
+let showEdges = true;
+
+function paint(p) {
+  const on = p === selected;
+  p.mesh.material.color.copy(on ? new THREE.Color(css('--accent')) : p.base);
+}
+
+function clearModel() {
+  for (const p of parts) { p.mesh.geometry.dispose(); p.mesh.material.dispose(); p.lines.geometry.dispose(); p.lines.material.dispose(); }
+  model.clear(); parts = []; selected = null;
+}
+
+function addPart(d) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(d.positions, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(d.normals, 3));
+  g.setIndex(new THREE.BufferAttribute(d.indices, 1));
+  g.computeBoundingBox();
+  const base = d.color ? new THREE.Color().setRGB(d.color[0], d.color[1], d.color[2], THREE.SRGBColorSpace) : new THREE.Color(css('--model'));
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: base, metalness: 0.1, roughness: 0.62, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+  const lines = new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), new THREE.LineBasicMaterial({ color: css('--ink'), transparent: true, opacity: 0.55 }));
+  lines.visible = showEdges;
+  mesh.add(lines);
+  model.add(mesh);
+  const p = { name: d.name, path: d.path, mesh, lines, size: d.size, volume: d.volume, approx: d.approx, triangles: d.triangles, base, box: g.boundingBox };
+  mesh.userData.part = p;
+  parts.push(p);
+  return p;
+}
+
+function fit() {
+  const box = new THREE.Box3();
+  for (const p of parts) if (p.mesh.visible) box.union(p.box);
+  if (box.isEmpty()) return;
+  const s = box.getBoundingSphere(new THREE.Sphere());
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  const dist = s.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2) * 1.08;
+  controls.target.copy(s.center);
+  camera.position.copy(s.center).addScaledVector(dir, dist);
+  camera.near = Math.max(dist / 500, 0.01); camera.far = dist * 20; camera.updateProjectionMatrix();
+  controls.update(); draw();
+}
+
+/* ---------- side panel ---------- */
+const mm = (v) => (v >= 100 ? v.toFixed(1) : v.toFixed(2));
+function select(p) {
+  const prev = selected; selected = p;
+  if (prev) { paint(prev); prev.row && prev.row.classList.remove('on'); }
+  if (p) { paint(p); p.row && p.row.classList.add('on'); }
+  $('isolate').disabled = !p;
+  $('d-name').textContent = p ? (p.path.length ? p.path.join(' / ') + ' / ' : '') + p.name : 'Nothing selected';
+  $('d-size').textContent = p && p.size ? mm(p.size[0]) + ' × ' + mm(p.size[1]) + ' × ' + mm(p.size[2]) + ' mm' : 'Click a part in the view or the list';
+  $('d-vol').textContent = p && p.volume ? (p.approx ? '≈ ' : '') + (p.volume / 1000).toFixed(p.volume < 10000 ? 3 : 2) + ' cm³' + (p.approx ? ' (from mesh)' : '') : ' ';
+  $('d-tri').textContent = p ? p.triangles.toLocaleString() + ' triangles' : ' ';
+  draw();
+}
+
+function buildTree() {
+  const tree = $('tree'); tree.textContent = '';
+  $('count').textContent = parts.length;
+  const groups = new Map();
+  for (const p of parts) {
+    const k = p.path.slice(1).join(' / ');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(p);
+  }
+  let n = 0;
+  for (const [k, list] of groups) {
+    if (groups.size > 1) {
+      const g = document.createElement('label'); g.className = 'group';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.id = 'grp-' + (n++);
+      cb.addEventListener('change', () => { for (const p of list) setVisible(p, cb.checked); });
+      g.append(cb, document.createTextNode(k || 'Top level')); tree.append(g);
+    }
+    for (const p of list) {
+      const row = document.createElement('div'); row.className = 'row';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true; cb.id = 'vis-' + (n++);
+      cb.setAttribute('aria-label', 'Show ' + p.name);
+      cb.addEventListener('change', () => setVisible(p, cb.checked));
+      const chip = document.createElement('span'); chip.className = 'chip'; chip.style.background = '#' + p.base.getHexString();
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = p.name;
+      b.addEventListener('click', () => select(selected === p ? null : p));
+      row.append(cb, chip, b); tree.append(row);
+      p.row = row; p.check = cb;
+    }
+  }
+}
+function setVisible(p, on) { p.mesh.visible = on; if (p.check) p.check.checked = on; draw(); }
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster();
+let down = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+  const hit = ray.intersectObjects(parts.filter((p) => p.mesh.visible).map((p) => p.mesh), false)[0];
+  select(hit ? hit.object.userData.part : null);
+  if (hit && selected.row) selected.row.scrollIntoView({ block: 'nearest' });
+});
+
+/* ---------- kernel worker ---------- */
+const msg = $('msg'), meter = $('meter');
+function say(text, bad) { msg.textContent = text; msg.classList.toggle('bad', !!bad); }
+let worker = null, ready = false, job = 0, pendingPlate = null, plateBusy = false, firstFit = true, stepName = '';
+try {
+  worker = new Worker(new URL('./cad-worker.js', import.meta.url), { type: 'module' });
+} catch (e) {
+  say('This browser could not start the geometry kernel: ' + e.message, true); meter.hidden = true;
+}
+if (worker) {
+  worker.onerror = (e) => { say('The geometry kernel stopped: ' + (e.message || 'unknown error'), true); meter.hidden = true; };
+  worker.onmessage = (ev) => {
+    const m = ev.data;
+    if (m.type === 'boot') {
+      meter.firstElementChild.style.width = Math.round((m.loaded / m.total) * 100) + '%';
+      say('Loading the geometry kernel  ' + (m.loaded / 1048576).toFixed(1) + ' / ' + (m.total / 1048576).toFixed(1) + ' MB');
+    } else if (m.type === 'ready') {
+      ready = true; meter.hidden = true;
+      say('Kernel ready in ' + (m.ms / 1000).toFixed(1) + ' s');
+      requestPlate();
+    } else if (m.type === 'fatal') {
+      say(m.message, true); meter.hidden = true;
+    } else if (m.type === 'progress') {
+      if (m.id !== job) return;
+      say(m.stage === 'reading' ? 'Reading ' + stepName + ' (large files take a few seconds)' : 'Meshing part ' + m.parts);
+    } else if (m.type === 'error') {
+      plateBusy = false;
+      if (m.id !== job) return;
+      say('Could not build this model: ' + m.message, true);
+      if (pendingPlate) requestPlate();
+    } else if (m.type === 'result') {
+      if (m.kind === 'plate') plateBusy = false;
+      if (m.id === job) show(m);
+      if (pendingPlate) requestPlate();
+    }
+  };
+}
+
+function show(m) {
+  const keep = m.kind === 'plate' && selected ? true : false;
+  clearModel();
+  for (const d of m.parts) addPart(d);
+  buildTree();
+  const tris = parts.reduce((a, p) => a + p.triangles, 0);
+  if (m.kind === 'plate') {
+    say('Rebuilt in ' + m.ms + ' ms  ·  ' + tris.toLocaleString() + ' triangles');
+    if (keep) select(parts[0]); else select(null);
+    if (firstFit) { fit(); firstFit = false; } else draw();
+  } else {
+    say(stepName + '  ·  ' + parts.length + (parts.length === 1 ? ' part' : ' parts') + '  ·  ' + tris.toLocaleString() + ' triangles  ·  opened in ' + (m.ms / 1000).toFixed(1) + ' s');
+    select(null); fit();
+  }
+}
+
+/* ---------- sample part ---------- */
+const FIELDS = ['length', 'width', 'thickness', 'hole', 'corner'];
+function readParams() { const p = {}; for (const f of FIELDS) p[f] = Number($('p-' + f).value); return p; }
+function requestPlate() {
+  if (!ready || !worker) return;
+  if (plateBusy) { pendingPlate = true; return; }
+  pendingPlate = null; plateBusy = true;
+  worker.postMessage({ type: 'plate', id: ++job, params: readParams() });
+}
+for (const f of FIELDS) {
+  $('p-' + f).addEventListener('input', () => {
+    $('o-' + f).textContent = $('p-' + f).value;
+    if (mode === 'plate') requestPlate();
+  });
+}
+let mode = 'plate';
+function setMode(next, label) {
+  mode = next;
+  $('params').hidden = next !== 'plate';
+  $('source').innerHTML = '';
+  if (next === 'plate') $('source').textContent = 'Sample part, built in your browser';
+  else { const b = document.createElement('b'); b.textContent = label; $('source').append(b, document.createTextNode(' · read on this device, never uploaded')); }
+}
+$('sample').addEventListener('click', () => { setMode('plate'); firstFit = true; requestPlate(); });
+
+/* ---------- opening STEP files ---------- */
+async function openFile(file) {
+  if (!file) return;
+  if (!/\.(step|stp)$/i.test(file.name)) { say('"' + file.name + '" is not a STEP file. Choose a .step or .stp file.', true); return; }
+  if (!ready) { say('The kernel is still loading. Try again in a moment.', true); return; }
+  stepName = file.name;
+  say('Reading ' + file.name);
+  let text;
+  try { text = await file.text(); } catch (e) { say('Could not read ' + file.name + ': ' + e.message, true); return; }
+  setMode('step', file.name + ' (' + (file.size / 1048576).toFixed(1) + ' MB)');
+  pendingPlate = null;
+  worker.postMessage({ type: 'step', id: ++job, text });
+}
+$('file').addEventListener('change', (e) => { openFile(e.target.files[0]); e.target.value = ''; });
+const main = $('main');
+let dragDepth = 0;
+main.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; main.classList.add('dragging'); });
+main.addEventListener('dragover', (e) => e.preventDefault());
+main.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; main.classList.remove('dragging'); } });
+main.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; main.classList.remove('dragging'); openFile(e.dataTransfer.files[0]); });
+
+/* ---------- toolbar ---------- */
+$('fit').addEventListener('click', fit);
+$('edges').addEventListener('click', () => {
+  showEdges = !showEdges; $('edges').setAttribute('aria-pressed', String(showEdges));
+  for (const p of parts) p.lines.visible = showEdges; draw();
+});
+$('isolate').addEventListener('click', () => { if (!selected) return; for (const p of parts) setVisible(p, p === selected); fit(); });
+$('showall').addEventListener('click', () => { for (const p of parts) setVisible(p, true); document.querySelectorAll('.group input').forEach((c) => { c.checked = true; }); fit(); });
+
+applyTheme(); resize();
+</script>
+</body>
+</html>
