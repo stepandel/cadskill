@@ -22,7 +22,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, ImageContent, TextContent
 from pydantic import BaseModel, Field
 
-from .runner import DEFAULT_TIMEOUT, Problem, Runner
+from .runner import DEFAULT_TIMEOUT, Problem, Runner, Starting
 from .store import Store, clean
 
 VIEWER_URI = "ui://cad-bench/viewer.html"
@@ -41,11 +41,14 @@ selector, render for a closer or sectioned view, measure to check a distance, ex
 Script rules: `cq` is already imported; units are millimetres; call
 show_object(part, name="...", options={"color": "steelblue"}) once per part; put dimensions in
 named constants at the top. A failed run changes nothing: the previous version stays current.
+
+If a tool answers that the CAD kernel is still starting, that is normal on first use (one to two
+minutes, once per computer). Tell the user it is warming up, wait about 20 seconds, and repeat the call.
 """
 
 mcp = FastMCP("cad-bench", instructions=INSTRUCTIONS)
 store = Store()
-runner = Runner()
+runner = Runner(start_wait=25)   # a call made while the kernel is still starting answers within 25 s
 _shown = {"model": None, "version": 0}       # what the viewer should be displaying
 _mesh_cache: dict[tuple[str, int], dict] = {}
 
@@ -108,6 +111,8 @@ async def _run(model: str, code: str, note: str | None, timeout: float, what: st
     was = store.version(model)
     try:
         out = await _work("run", timeout, code=code, model_dir=str(store.dir(model)))
+    except Starting as exc:
+        return _text(str(exc), error=True)
     except Problem as exc:
         return _text(f"{exc}\nThe model is unchanged" + (f" (still version {was})." if was else "."), error=True)
     printed = f"\nPrinted by the script:\n{out['stdout'].rstrip()}" if out["stdout"].strip() else ""
@@ -435,6 +440,7 @@ def main() -> None:
     """Run the MCP server on stdio. With --page, only serve the viewer page (for working on the viewer)."""
     import sys
 
+    runner.warm()        # start loading CadQuery now, so it is ready (or nearly) by the first tool call
     if "--page" in sys.argv:
         print(f"CAD Bench viewer at {start_viewer_page()}", file=sys.stderr)
         threading.Event().wait()

@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from cadbench_mcp.runner import Problem
+from cadbench_mcp.runner import Problem, Runner, Starting
 
 
 def run(runner, code, tmp_path, **kw):
@@ -112,3 +112,15 @@ def test_export_step_round_trip(runner, two, tmp_path):
     for fmt in ("stl", "3mf", "brep", "glb", "svg"):
         made = runner.call("export", code=two, model_dir=str(tmp_path), fmt=fmt, path=str(tmp_path / "exports" / f"m.{fmt}"), names=["plate"])
         assert made["bytes"] > 100, fmt
+
+
+def test_a_call_during_startup_says_so_instead_of_hanging(plate, tmp_path):
+    r = Runner(start_wait=0.05)
+    try:
+        r.warm()
+        with pytest.raises(Starting, match="still starting"):
+            r.call("run", code=plate, model_dir=str(tmp_path))
+        assert r._ready.wait(300)                       # the background start carries on regardless
+        assert r.call("run", code=plate, model_dir=str(tmp_path))["parts"][0]["size"] == [40, 24, 6]
+    finally:
+        r.stop()

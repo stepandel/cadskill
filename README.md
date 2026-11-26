@@ -46,9 +46,27 @@ Models are plain files, one folder each, under `~/Documents/CAD Bench/`
 ## Install
 
 Requires [uv](https://docs.astral.sh/uv/). The server pins Python 3.12 and
-its dependencies; `uv` downloads them the first time the server starts. That
-first start is slow (CadQuery and VTK are several hundred megabytes, and the
-first import can take over a minute).
+its dependencies; `uv` downloads them (about 1.3 GB installed) the first time
+the server starts.
+
+**The first start on a computer takes one to two minutes.** Measured on an
+Apple-silicon Mac: 85 to 97 seconds, almost all of it macOS checking the
+large native CAD libraries (OpenCASCADE and VTK) the first time each is
+loaded. It is not the download and not Python compiling. What the plugin does
+about it:
+
+- The server itself starts at once and begins loading CadQuery in the
+  background, so the tools are listed immediately.
+- A tool called before the kernel is ready answers within 25 seconds that it
+  is still starting, and the skill tells Claude to say so and try again,
+  instead of the call hanging.
+- The plugin installs with `UV_LINK_MODE=hardlink`, so the checked library
+  files are shared with `uv`'s cache. A later reinstall (a plugin update) then
+  starts in about 12 seconds instead of paying the full cost again. This needs
+  the plugin and `uv`'s cache on the same disk; otherwise `uv` copies and each
+  reinstall is slow once.
+
+After the first time, starting takes about 3 to 5 seconds.
 
 - **Claude Code**: `claude --plugin-dir .` from this folder.
 - **Cowork**: `npm run package`, then upload `dist/cad-bench-plugin.zip` at

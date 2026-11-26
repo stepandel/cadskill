@@ -25,6 +25,11 @@ check your work with the numbers and pictures the tools return.
 A failed run changes nothing. The reply names the failing line; fix that line
 with `edit_model` against the script as it was before the failed edit.
 
+**First use on a computer is slow.** If a tool replies that the CAD kernel is
+still starting, nothing is wrong: the first start takes one to two minutes,
+once per computer. Tell the user it is warming up, wait about 20 seconds and
+make the same call again. Do not rewrite the script or give up.
+
 ## Script rules
 
 - `cq` (CadQuery), `math`, `show_object` and `asset` are already available.

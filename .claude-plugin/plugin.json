@@ -5,7 +5,15 @@
   "mcpServers": {
     "cad-bench": {
       "command": "uv",
-      "args": ["run", "--project", "${CLAUDE_PLUGIN_ROOT}/server", "cadbench-mcp"]
+      "args": [
+        "run",
+        "--project",
+        "${CLAUDE_PLUGIN_ROOT}/server",
+        "cadbench-mcp"
+      ],
+      "env": {
+        "UV_LINK_MODE": "hardlink"
+      }
     }
   }
 }
