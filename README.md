@@ -10,22 +10,25 @@ Python MCP server that lets Claude drive a server-side kernel, is not started.
 
 ## What it does
 
+- Shows the model full-window, with one dock of controls at the bottom (fit
+  view, edges, history, open file) and a size, volume and triangle readout
+  top-right.
 - Keeps a model as a history of steps (box, cylinder, round corners, hole,
   move, import) and rebuilds it live as you drag any step's sliders. The
-  sample mounting plate is three such steps.
+  history opens from the dock as a floating panel. The sample mounting plate
+  (40 × 24 × 6 mm) is three such steps.
 - Keeps the exact kernel shape of every part, not only its mesh, so later
   steps can work on it: you can drill a hole in an imported part.
 - Undo and redo, deleting a step, and rolling back to any earlier step.
 - Saves the model in the browser and reopens it on the next visit.
 - Opens STEP files (`.step`, `.stp`) by file picker or drag-and-drop, keeps the
   assembly structure, and places every part where the assembly puts it.
-- Lists parts by sub-assembly with show/hide, selection, and a "show only
-  selected" view.
-- Reports size, volume and triangle count for the selected part.
+- Click a part to select it; the readout and dock then describe that part.
+  With nothing selected they describe the whole model.
 
 Not there yet: export, saving to a file or sharing a model with someone else,
-measuring between features, picking faces or edges for a step (round corners
-only finds vertical edges; a hole is always along Z).
+measuring between features, a part list with show/hide, picking faces or edges
+for a step (round corners only finds vertical edges; a hole is always along Z).
 
 ## Run it locally
 
@@ -45,10 +48,10 @@ Set `PORT` to serve on a different port.
 | Path | What it is |
 |---|---|
 | `src/index.html` | The page's markup and styles |
-| `src/ui/app.js` | Page entry point: redraws from each document answer, saving, opening files, toolbar |
+| `src/ui/app.js` | Page entry point: redraws from each document answer, saving, opening files, dock buttons |
 | `src/ui/viewer.js` | Three.js view: the drawn parts, selection, picking, camera, theme |
-| `src/ui/history-panel.js` | The History list: steps, sliders, rollback, delete, add |
-| `src/ui/parts-panel.js` | The Parts list and the Selection read-out |
+| `src/ui/history-panel.js` | The History panel: steps, sliders, rollback, delete, add |
+| `src/ui/readout.js` | The top-right readout and the dock's part label |
 | `src/ui/kernel-client.js` | Starts the worker and queues commands to it |
 | `src/cad-doc.js` | The document: step list, the kernel shapes each step produces, undo, rollback |
 | `src/cad-core.js` | Geometry helpers: STEP import and assembly walk, meshing, mesh measurement |
@@ -101,8 +104,8 @@ Three more things to know:
   within a fraction of a percent, and exact measurement was several seconds
   slower on a 27-part assembly. Parts built from steps use the exact value.
 - **Saving is per browser.** IndexedDB is tied to this browser and this
-  address; where the browser gives the page no storage the header shows
-  "not saved" and the page still works. Reopening an imported model reads the
+  address; where the browser gives the page no storage the History panel
+  shows "not saved" and the page still works. Reopening an imported model reads the
   STEP file again, which takes as long as opening it did.
 - **A step that fails keeps its place.** It is marked in the history with the
   reason, and the steps after it run on what exists. Adding a step that cannot

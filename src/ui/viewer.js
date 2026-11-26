@@ -1,6 +1,6 @@
 // The 3D view: scene, camera, the drawn parts, and which one is selected.
-// It owns `view.parts` and `view.selected`; the panels read them and are told
-// about changes through onSelect and onVisible.
+// It owns `view.parts` and `view.selected`; the rest of the page reads them and
+// is told about selection changes through onSelect.
 import * as THREE from 'three';
 import { OrbitControls } from '../vendor/three/OrbitControls.js';
 import { $, css } from './dom.js';
@@ -69,12 +69,11 @@ function makePart(d) {
 }
 
 // Replaces the drawn parts with the worker's list. A part whose key is already
-// drawn is reused (the worker sends no mesh for it); hidden parts stay hidden.
-// The selection is cleared: the caller re-selects once its panels are rebuilt.
+// drawn is reused (the worker sends no mesh for it).
+// The selection is cleared: the caller re-selects once the page is redrawn.
 // Returns true if the set of parts changed.
 export function setParts(list) {
   const old = new Map(view.parts.map((p) => [p.key, p]));
-  const hidden = new Set(view.parts.filter((p) => !p.mesh.visible).map((p) => p.id));
   const before = view.parts.map((p) => p.id).join();
   const next = [];
   model.clear();
@@ -82,7 +81,6 @@ export function setParts(list) {
     let p = old.get(d.key);
     if (p) old.delete(d.key); else if (d.positions) p = makePart(d); else continue;
     Object.assign(p, { step: d.step, name: d.name, path: d.path, size: d.size, volume: d.volume, approx: d.approx, triangles: d.triangles });
-    p.mesh.visible = !hidden.has(p.id);
     paint(p);
     model.add(p.mesh); next.push(p);
   }
@@ -92,21 +90,14 @@ export function setParts(list) {
   return before !== next.map((p) => p.id).join();
 }
 
-const selectListeners = [], visibleListeners = [];
-export function onSelect(fn) { selectListeners.push(fn); }     // fn(part or null, previous, pickedInView)
-export function onVisible(fn) { visibleListeners.push(fn); }   // fn(part)
+const selectListeners = [];
+export function onSelect(fn) { selectListeners.push(fn); }     // fn(part or null)
 
-export function select(p, picked = false) {
+export function select(p) {
   const prev = view.selected; view.selected = p;
   if (prev) paint(prev);
   if (p) paint(p);
-  for (const fn of selectListeners) fn(p, prev, picked);
-  draw();
-}
-
-export function setVisible(p, on) {
-  p.mesh.visible = on;
-  for (const fn of visibleListeners) fn(p);
+  for (const fn of selectListeners) fn(p);
   draw();
 }
 
@@ -116,13 +107,27 @@ export function setEdges(on) {
   draw();
 }
 
-export function fit() {
+function bounds() {
   const box = new THREE.Box3();
-  for (const p of view.parts) if (p.mesh.visible) box.union(p.box);
+  for (const p of view.parts) box.union(p.box);
+  return box;
+}
+// Overall size of everything drawn, as [x, y, z] in mm, or null when there is nothing.
+export function modelSize() {
+  const box = bounds();
+  if (box.isEmpty()) return null;
+  const s = box.getSize(new THREE.Vector3());
+  return [s.x, s.y, s.z];
+}
+
+export function fit() {
+  const box = bounds();
   if (box.isEmpty()) return;
   const s = box.getBoundingSphere(new THREE.Sphere());
   const dir = camera.position.clone().sub(controls.target).normalize();
-  const dist = s.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2) * 1.08;
+  const half = THREE.MathUtils.degToRad(camera.fov) / 2;                       // vertical half-angle
+  const narrow = Math.min(half, Math.atan(Math.tan(half) * camera.aspect));   // the tighter of vertical and horizontal, so tall windows fit too
+  const dist = s.radius / Math.sin(narrow) * 1.08;
   controls.target.copy(s.center);
   camera.position.copy(s.center).addScaledVector(dir, dist);
   camera.near = Math.max(dist / 500, 0.01); camera.far = dist * 20; camera.updateProjectionMatrix();
@@ -137,8 +142,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
   const r = renderer.domElement.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
-  const hit = ray.intersectObjects(view.parts.filter((p) => p.mesh.visible).map((p) => p.mesh), false)[0];
-  select(hit ? hit.object.userData.part : null, true);
+  const hit = ray.intersectObjects(view.parts.map((p) => p.mesh), false)[0];
+  select(hit ? hit.object.userData.part : null);
 });
 
 applyTheme(); resize();

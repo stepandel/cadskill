@@ -7,7 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
 <style>
-  /* Layout: one-screen bench. Title strip on top, history and parts in a left rail, the model fills the rest. */
+  /* Layout: the model fills the page. A wordmark and a readout sit in the top corners, one dock of controls at the bottom.
+     The history opens from the dock as a floating panel on the left. */
   :root {
     --paper: #e9edf1;
     --panel: #f7f9fa;
@@ -54,30 +55,8 @@
     background: var(--paper);
     color: var(--ink);
     font: 14px/1.45 var(--body);
-    display: grid;
-    grid-template-rows: auto 1fr;
-    grid-template-columns: 300px 1fr;
-    grid-template-areas: "bar bar" "rail view";
+    overflow: hidden;
   }
-  header {
-    grid-area: bar;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 16px;
-    padding: 10px 16px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--rule);
-  }
-  h1 {
-    font: 600 18px/1 var(--display);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin: 0;
-  }
-  .source { color: var(--muted); min-width: 0; overflow-wrap: anywhere; flex: 1 1 160px; }
-  .source b { color: var(--ink); font-weight: 500; }
-  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
   button, .filebtn {
     font: 500 13px/1 var(--body);
     color: var(--ink);
@@ -86,6 +65,7 @@
     border-radius: 4px;
     padding: 8px 12px;
     cursor: pointer;
+    white-space: nowrap;
   }
   button:hover, .filebtn:hover { border-color: var(--accent); }
   button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -94,37 +74,53 @@
   .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
   button:disabled { opacity: 0.5; cursor: default; }
 
-  aside {
-    grid-area: rail;
-    background: var(--panel);
-    border-right: 1px solid var(--rule);
-    overflow-y: auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+  /* The model fills the page; everything else floats over it. */
+  main { position: fixed; inset: 0; }
+  #stage { position: absolute; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  h1 {
+    position: absolute; left: 24px; top: 24px; margin: 0;
+    font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    pointer-events: none;
   }
-  section { padding: 14px 16px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 10px; }
-  h2 {
-    font: 600 12px/1 var(--display);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
+  #readout {
+    position: absolute; right: 24px; top: 22px; max-width: min(60vw, 520px);
+    text-align: right; font: 400 12px/1.6 var(--mono); font-variant-numeric: tabular-nums; color: var(--muted);
+    overflow-wrap: anywhere; pointer-events: none;
   }
-  h2 span { font: 400 12px/1 var(--mono); letter-spacing: 0; text-transform: none; }
+  #r-size { color: var(--ink); }
+
+  #dock {
+    position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
+    max-width: calc(100vw - 32px);
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px;
+    padding: 8px 8px 8px 16px;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+  }
+  .part { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .chip { width: 10px; height: 10px; border-radius: 2px; flex: none; background: var(--model); border: 1px solid var(--rule); }
+  #name { font: 400 13px/1.2 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
+  .sep { width: 1px; height: 20px; background: var(--rule); }
+  .tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+  /* History: closed until asked for, so the model keeps the window. */
+  #history {
+    position: absolute; left: 24px; top: 56px; width: 288px; max-width: calc(100vw - 32px);
+    max-height: calc(100% - 56px - 112px); overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px; padding: 16px;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+  }
+  #history h2 {
+    font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  #history h2 span { font: 400 12px/1 var(--mono); letter-spacing: 0; text-transform: none; }
+  #history .tools { justify-content: flex-start; }
+  #history .tools button { padding: 6px 8px; }
   .hint { color: var(--muted); font-size: 13px; margin: 0; }
-
-  .param { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; }
-  .param label { font-size: 13px; }
-  .param output { font: 500 13px/1 var(--mono); font-variant-numeric: tabular-nums; }
-  .param input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
-
   #steps { display: flex; flex-direction: column; gap: 12px; }
+  #steps:empty { display: none; }
   .step { display: flex; flex-direction: column; gap: 8px; }
   .step.off { opacity: 0.45; }
   .stephead { display: flex; align-items: center; gap: 8px; }
@@ -134,26 +130,14 @@
   .stephead .del:hover { color: var(--bad); border-color: var(--bad); }
   .step.bad .stephead b, .steperr { color: var(--bad); }
   .steperr { margin: 0; font-size: 13px; }
+  .param { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; }
+  .param label { font-size: 13px; }
+  .param output { font: 500 13px/1 var(--mono); font-variant-numeric: tabular-nums; }
+  .param input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
 
-  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
-  dt { color: var(--muted); font-size: 13px; }
-  dd { margin: 0; font: 400 13px/1.45 var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-
-  #tree { display: flex; flex-direction: column; gap: 2px; }
-  .group { font: 600 12px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 8px 0 4px; display: flex; align-items: center; gap: 8px; }
-  .row { display: flex; align-items: center; gap: 8px; border-radius: 4px; padding: 0 4px 0 0; }
-  .row input, .group input { accent-color: var(--accent); margin: 0; }
-  .row button { flex: 1; text-align: left; border: 0; padding: 6px 6px; font: 400 13px/1.2 var(--mono); border-radius: 4px; overflow-wrap: anywhere; }
-  .row button:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
-  .row.on button { background: var(--accent); color: var(--accent-ink); }
-  .chip { width: 10px; height: 10px; border-radius: 2px; flex: none; border: 1px solid var(--rule); }
-
-  main { grid-area: view; position: relative; min-height: 0; min-width: 0; }
-  #stage { position: absolute; inset: 0; }
-  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #status {
-    position: absolute; left: 16px; bottom: 16px; right: 16px;
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    position: absolute; left: 16px; right: 16px; bottom: 96px;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px;
     font: 400 12px/1.4 var(--mono); color: var(--muted);
     pointer-events: none;
   }
@@ -166,13 +150,16 @@
     display: none; align-items: center; justify-content: center;
     font: 600 16px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
     background: color-mix(in srgb, var(--paper) 80%, transparent);
+    pointer-events: none;
   }
   main.dragging #drop { display: flex; }
   [hidden] { display: none !important; }
 
   @media (max-width: 720px) {
-    body { grid-template-columns: 1fr; grid-template-rows: auto minmax(280px, 55%) 1fr; grid-template-areas: "bar" "view" "rail"; }
-    aside { border-right: 0; border-top: 1px solid var(--rule); }
+    .sep { display: none; }
+    #dock { bottom: 16px; padding: 8px; }
+    #status { bottom: 124px; }
+    #history { left: 16px; top: 48px; max-height: calc(100% - 48px - 150px); }
   }
 </style>
 <script type="importmap">
@@ -180,22 +167,17 @@
 </script>
 </head>
 <body>
-<header>
+<main id="main">
+  <div id="stage"></div>
   <h1>CAD Bench</h1>
-  <div class="source" id="source">Built in your browser</div>
-  <div class="tools">
-    <label class="filebtn">Open STEP file<input type="file" id="file" accept=".step,.stp,.STEP,.STP"></label>
-    <button type="button" id="sample">Sample part</button>
-    <button type="button" id="undo" disabled>Undo</button>
-    <button type="button" id="redo" disabled>Redo</button>
-    <button type="button" id="fit">Fit view</button>
-    <button type="button" id="edges" aria-pressed="true">Edges</button>
-  </div>
-</header>
-
-<aside>
-  <section id="history">
+  <div id="readout" aria-live="polite"><div id="r-size">&nbsp;</div><div id="r-meta">&nbsp;</div></div>
+  <section id="history" aria-label="History" hidden>
     <h2>History <span id="saved"></span></h2>
+    <div class="tools">
+      <button type="button" id="undo" disabled>Undo</button>
+      <button type="button" id="redo" disabled>Redo</button>
+      <button type="button" id="sample">Sample part</button>
+    </div>
     <div id="steps"></div>
     <div class="tools" id="add">
       <button type="button" data-op="box">+ Box</button>
@@ -206,31 +188,18 @@
     </div>
     <p class="hint">The model is rebuilt from these steps, in order. Click a step's number to roll back to it. Hole, Round corners and Move apply to the selected part.</p>
   </section>
-
-  <section>
-    <h2>Selection</h2>
-    <dl id="detail">
-      <dt>Part</dt><dd id="d-name">Nothing selected</dd>
-      <dt>Size</dt><dd id="d-size">Click a part in the view or the list</dd>
-      <dt>Volume</dt><dd id="d-vol">&nbsp;</dd>
-      <dt>Mesh</dt><dd id="d-tri">&nbsp;</dd>
-    </dl>
-  </section>
-
-  <section>
-    <h2>Parts <span id="count">0</span></h2>
-    <div class="tools">
-      <button type="button" id="isolate" disabled>Show only selected</button>
-      <button type="button" id="showall">Show all</button>
-    </div>
-    <div id="tree"></div>
-  </section>
-</aside>
-
-<main id="main">
-  <div id="stage"></div>
   <div id="drop">Drop a STEP file to open it</div>
   <div id="status"><span class="msg" id="msg">Loading the geometry kernel</span><span id="meter"><i></i></span></div>
+  <div id="dock">
+    <div class="part"><span class="chip" id="chip"></span><span id="name">Sample part</span></div>
+    <span class="sep"></span>
+    <div class="tools">
+      <button type="button" id="fit">Fit view</button>
+      <button type="button" id="edges" aria-pressed="true">Edges</button>
+      <button type="button" id="toggle-history" aria-pressed="false" aria-controls="history">History</button>
+      <label class="filebtn">Open STEP file<input type="file" id="file" accept=".step,.stp,.STEP,.STP"></label>
+    </div>
+  </div>
 </main>
 
 <script type="module" src="./ui/app.js"></script>

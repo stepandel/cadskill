@@ -3,24 +3,26 @@
 import { openStore } from '../cad-store.js';
 import { $ } from './dom.js';
 import { view, setParts, select, setEdges, fit } from './viewer.js';
-import { renderParts } from './parts-panel.js';
+import { describe, setSourceName } from './readout.js';
 import { initHistory, renderSteps } from './history-panel.js';
 import { startKernel } from './kernel-client.js';
 
 const msg = $('msg'), meter = $('meter');
-function say(text, bad) { msg.textContent = text; msg.classList.toggle('bad', !!bad); }
-let doc = null, stepName = '';
+function say(text, bad) { msg.textContent = text; msg.classList.toggle('bad', !!bad); msg.hidden = false; }
+function quiet() { msg.hidden = true; }   // once a model is up, the readout carries the numbers
+let doc = null, stepName = '', keepMessage = false;
+describe();
 
 const kernel = startKernel({
   boot(loaded, total) {
     meter.firstElementChild.style.width = Math.round((loaded / total) * 100) + '%';
     say('Loading the geometry kernel  ' + (loaded / 1048576).toFixed(1) + ' / ' + (total / 1048576).toFixed(1) + ' MB');
   },
-  ready(ms) { meter.hidden = true; say('Kernel ready in ' + (ms / 1000).toFixed(1) + ' s'); reopen(); },
+  ready() { meter.hidden = true; reopen(); },
   fatal(message) { say(message, true); meter.hidden = true; },
   progress(m) { say(m.stage === 'reading' ? 'Reading ' + (stepName || 'your saved model') + ' (large files take a few seconds)' : 'Reading part ' + m.parts); },
   error(m) {
-    if (m.kind === 'load') { send({ type: 'sample' }); say('Your saved model could not be reopened (' + m.message + '). Showing the sample part.', true); }
+    if (m.kind === 'load') { keepMessage = true; send({ type: 'sample' }); say('Your saved model could not be reopened (' + m.message + '). Showing the sample part.', true); }
     else say(m.message, true);
   },
   result: apply,
@@ -33,20 +35,12 @@ function apply(m) {
   const selId = view.selected && view.selected.id;
   const partsChanged = setParts(m.parts);
   doc = m.doc;
-  renderParts(); renderSteps(doc, m.errors);
-  select(view.parts.find((p) => p.id === selId) || null);
-  $('undo').disabled = !m.canUndo; $('redo').disabled = !m.canRedo;
-
+  renderSteps(doc, m.errors);
   const imported = doc.features.find((f) => f.op === 'import');
-  $('source').textContent = '';
-  if (imported) { const b = document.createElement('b'); b.textContent = imported.name; $('source').append(b, document.createTextNode(' · read on this device, never uploaded')); }
-  else $('source').textContent = 'Built in your browser';
-
-  const tris = view.parts.reduce((a, p) => a + p.triangles, 0);
-  const count = view.parts.length + (view.parts.length === 1 ? ' part' : ' parts') + '  ·  ' + tris.toLocaleString() + ' triangles';
-  if (m.kind === 'open') say(stepName + '  ·  ' + count + '  ·  opened in ' + (m.ms / 1000).toFixed(1) + ' s');
-  else if (m.kind === 'load') say('Reopened your saved model  ·  ' + count);
-  else say('Rebuilt in ' + m.ms + ' ms  ·  ' + count);
+  setSourceName(imported ? imported.name : 'Model');
+  select(view.parts.find((p) => p.id === selId) || null);   // also redraws the readout and dock label
+  $('undo').disabled = !m.canUndo; $('redo').disabled = !m.canRedo;
+  if (keepMessage) keepMessage = false; else quiet();
   if (['open', 'sample', 'load'].includes(m.kind) || (partsChanged && ['undo', 'redo'].includes(m.kind))) fit();
   if (m.kind !== 'load') save();
 }
@@ -88,7 +82,7 @@ async function openFile(file) {
   const blob = crypto.randomUUID();
   lostFile = false;
   if (store) store.putBlob(blob, text).catch(() => { lostFile = true; saved(false); });   // too large for this browser's storage
-  send({ type: 'open', blob, text, name: file.name + ' (' + (file.size / 1048576).toFixed(1) + ' MB)' });
+  send({ type: 'open', blob, text, name: file.name });
 }
 $('file').addEventListener('change', (e) => { openFile(e.target.files[0]); e.target.value = ''; });
 const main = $('main');
@@ -106,6 +100,11 @@ addEventListener('keydown', (e) => {
   if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return;
   e.preventDefault();
   if (e.shiftKey ? !$('redo').disabled : !$('undo').disabled) send({ type: e.shiftKey ? 'redo' : 'undo' });
+});
+$('toggle-history').addEventListener('click', () => {
+  const open = $('history').hidden;
+  $('history').hidden = !open;
+  $('toggle-history').setAttribute('aria-pressed', String(open));
 });
 $('fit').addEventListener('click', fit);
 $('edges').addEventListener('click', () => {
