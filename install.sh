@@ -1,12 +1,12 @@
 #!/bin/sh
 # Installs CadSkill: the `cadskill` command and its Claude or Codex skill.
 #
-#   curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh
+#   curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh
 #
 # Options after `sh -s --` go to `cadskill install`, for example:
 #
-#   curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --desktop
-#   curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --agent codex
+#   curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh -s -- --desktop
+#   curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh -s -- --agent codex
 #
 # Run it again to update. It uses uv (https://docs.astral.sh/uv/) to fetch Python
 # and the CAD libraries into a folder of their own, and installs uv first if it

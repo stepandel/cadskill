@@ -13,8 +13,8 @@ numbers `cadskill` prints and the pictures it writes.
 This skill works in Claude Code and Codex. If `cadskill` is not found, use
 the install instructions for the current agent (macOS or Linux):
 
-- Claude Code: `curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh`
-- Codex: `curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --agent codex`
+- Claude Code: `curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh`
+- Codex: `curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh -s -- --agent codex`
 
 Tell the user which command to run and to open a new terminal afterward,
 then stop.

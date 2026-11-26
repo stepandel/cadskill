@@ -29,7 +29,7 @@ from .store import clean, root
 
 VERSION = _installed("cadskill")
 SKILL_NAME = "cadskill"
-INSTALL_LINE = "curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh"
+INSTALL_LINE = "curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh"
 SKILL_SOURCE = Path(__file__).parent / "skill"
 WORK_DIR = ".cadskill"            # in the current folder: pictures and pages for the agent to open
 START_WAIT = 100                  # how long one command waits for a kernel that is still starting

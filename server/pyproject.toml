@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/stepandel/cad-modeling"
-Source = "https://github.com/stepandel/cad-modeling"
+Homepage = "https://github.com/stepandel/cadskill"
+Source = "https://github.com/stepandel/cadskill"
 
 [project.scripts]
 cadskill = "cadskill_mcp.cli:main"

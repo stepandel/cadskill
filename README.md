@@ -27,7 +27,7 @@ token or time limit, both reach about 0.83:
 On macOS or Linux, run:
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh
 ```
 
 That is the whole install. The script installs [uv](https://docs.astral.sh/uv/)
@@ -47,7 +47,7 @@ If the installer says so, open a new terminal first so `cadskill` is on your
 Options go after `sh -s --` and are passed to `cadskill install`:
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --desktop
+curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh -s -- --desktop
 ```
 
 | Option | What it does |
@@ -69,7 +69,7 @@ cadskill install            # with any of the options above
 Install the command and skill on macOS or Linux:
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --agent codex
+curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh -s -- --agent codex
 ```
 
 If `cadskill` is already installed, run `cadskill install --agent codex`.
@@ -115,7 +115,7 @@ can use the desktop app's local MCP servers. Install with `--desktop` (or run
 `cadskill install --desktop` after installing):
 
 ```sh
-curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --desktop
+curl -LsSf https://raw.githubusercontent.com/stepandel/cadskill/main/install.sh | sh -s -- --desktop
 ```
 
 This adds a `cadskill` entry to `claude_desktop_config.json` (keeping a copy
