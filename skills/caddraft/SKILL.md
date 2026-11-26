@@ -1,5 +1,5 @@
 ---
-name: cad-modeling
+name: caddraft
 description: Design 3D parts and assemblies with the CadDraft tools (run_model, edit_model, inspect, render, measure, export). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, or wants to change or measure a model made earlier.
 ---
 

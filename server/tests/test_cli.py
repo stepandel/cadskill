@@ -14,6 +14,7 @@ def fresh(tmp_path, runner, monkeypatch):
     monkeypatch.setattr(server, "runner", runner)
     server._shown.update(model=None, version=0)
     server._mesh_cache.clear()
+    monkeypatch.setattr(cli, "_desktop_config", lambda: tmp_path / "Claude" / "claude_desktop_config.json")   # never the real one
 
 
 def test_selection_spellings():
@@ -64,11 +65,31 @@ def test_install_and_uninstall(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     settings = tmp_path / "claude" / "settings.json"
     assert cli.main(["install"]) == 0
-    skill = tmp_path / "claude" / "skills" / "cad-modeling" / "SKILL.md"
-    assert skill.read_text().startswith("---\nname: cad-modeling\n") and not settings.exists()
+    skill = tmp_path / "claude" / "skills" / "caddraft" / "SKILL.md"
+    assert skill.read_text().startswith("---\nname: caddraft\n") and not settings.exists()
 
     settings.write_text('{"permissions": {"allow": ["Bash(ls:*)"]}, "model": "x"}')
     assert cli.main(["install", "--allow"]) == 0 and cli.main(["install", "--allow"]) == 0
     assert json.loads(settings.read_text()) == {"permissions": {"allow": ["Bash(ls:*)", "Bash(caddraft:*)"]}, "model": "x"}
 
     assert cli.main(["uninstall"]) == 0 and not skill.exists()
+
+
+def test_desktop_registration(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    config = cli._desktop_config()
+    program = tmp_path / "bin" / "caddraft-mcp"
+    program.parent.mkdir()
+    program.write_text("")
+    monkeypatch.setattr(cli.shutil, "which", lambda name: str(program) if name == "caddraft-mcp" else None)
+    config.parent.mkdir()
+    config.write_text('{"mcpServers": {"other": {"command": "x"}}, "preferences": {"a": 1}}')
+
+    assert cli.main(["install", "--desktop"]) == 0
+    assert json.loads(config.read_text()) == {
+        "mcpServers": {"other": {"command": "x"}, "caddraft": {"command": str(program), "args": []}},
+        "preferences": {"a": 1}}
+    assert json.loads(config.with_suffix(".json.before-caddraft").read_text())["mcpServers"] == {"other": {"command": "x"}}
+
+    assert cli.main(["uninstall"]) == 0
+    assert json.loads(config.read_text())["mcpServers"] == {"other": {"command": "x"}}

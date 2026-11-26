@@ -14,14 +14,14 @@ Requires [uv](https://docs.astral.sh/uv/). From a checkout of this repo:
 
 ```sh
 uv tool install ./server    # the `caddraft` command (about 1.3 GB of CAD libraries)
-caddraft install            # the skill, into ~/.claude/skills/cad-modeling
+caddraft install            # the skill, into ~/.claude/skills/caddraft
 ```
 
 Start a new Claude session and ask for a part. That is the whole install:
 
 | What | Where | Why |
 |---|---|---|
-| The skill | `~/.claude/skills/cad-modeling/SKILL.md` | Tells Claude how to model with `caddraft` and check its work |
+| The skill | `~/.claude/skills/caddraft/SKILL.md` | Tells Claude how to model with `caddraft` and check its work |
 | The command | `caddraft`, in uv's tool folder | Runs the scripts; nothing of it lives in Claude's folder |
 | Your models | `~/Documents/CadDraft/` | Every version of every model, as plain files |
 
@@ -35,7 +35,13 @@ publishes the page `caddraft export MODEL html` writes.
   `settings.json`, so Claude does not ask before each command. Building a
   model runs its script as Python, so this lets Claude run Python without
   asking; leave it out to approve commands as they come.
-- After pulling a newer version: `uv tool install --force ./server`, then
+- `caddraft install --desktop` also registers the MCP server with the Claude
+  desktop app (`claude_desktop_config.json`, keeping a copy of the file as it
+  was). Chat sessions cannot read the skill or run commands, but they can use
+  the desktop app's local MCP servers, so this is how CadDraft reaches them.
+  Quit and reopen the app afterwards.
+- After pulling a newer version: `uv tool install --force --reinstall-package caddraft-mcp ./server`
+  (plain `--force` reuses the previous build), then
   `caddraft install` again.
 - `caddraft uninstall` and `uv tool uninstall caddraft-mcp` remove it. Models
   stay.
@@ -83,7 +89,7 @@ same name and teach different ways to call the tools.
 | Piece | What it is |
 |---|---|
 | MCP server (`caddraft-mcp`, or `caddraft mcp`) | The tools below, over stdio |
-| Skill (`skills/cad-modeling/`) | The same guidance, written for the MCP tools |
+| Skill (`skills/caddraft/`) | The same guidance, written for the MCP tools |
 | Viewer | Offered to the host as an MCP App |
 
 Claude sends a full script with `run_model` or changes the current one with
@@ -198,7 +204,7 @@ Rebuild and commit it whenever `src/` changes.
 | Path | What it is |
 |---|---|
 | `.claude-plugin/plugin.json` | Plugin manifest; starts the server with `uv run` |
-| `skills/cad-modeling/SKILL.md` | The plugin's skill (MCP tools) |
+| `skills/caddraft/SKILL.md` | The plugin's skill (MCP tools) |
 | `server/caddraft_mcp/skill/SKILL.md` | The skill `caddraft install` copies (`caddraft` commands) |
 | `server/caddraft_mcp/cli.py` | The `caddraft` command and the skill installer |
 | `server/caddraft_mcp/daemon.py` | The background process the command talks to |

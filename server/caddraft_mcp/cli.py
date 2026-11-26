@@ -28,7 +28,7 @@ from pathlib import Path
 from .store import clean, root
 
 VERSION = _installed("caddraft-mcp")
-SKILL_NAME = "cad-modeling"
+SKILL_NAME = "caddraft"
 SKILL_SOURCE = Path(__file__).parent / "skill"
 WORK_DIR = ".caddraft"            # in the current folder: pictures and pages for the agent to open
 START_WAIT = 100                  # how long one command waits for a kernel that is still starting
@@ -237,7 +237,9 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--project", action="store_true", help="Into this project (.claude/skills) instead of your home folder.")
     s.add_argument("--allow", action="store_true",
                    help="Also let Claude run caddraft commands without asking each time (edits Claude's settings.json).")
-    s = add("uninstall", "Remove the CadDraft skill.", model=False)
+    s.add_argument("--desktop", action="store_true",
+                   help="Also register the MCP server with the Claude desktop app, so chat sessions get the tools.")
+    s = add("uninstall", "Remove the CadDraft skill, and the desktop app's entry if there is one.", model=False)
     s.add_argument("--project", action="store_true")
     add("status", "Say whether the background process is running.", model=False)
     add("stop", "Stop the background process.", model=False)
@@ -275,9 +277,49 @@ def _claude_home(project: bool) -> Path:
 
 
 ALLOW_RULE = "Bash(caddraft:*)"
+DESKTOP_NAME = "caddraft"         # the MCP server's name in the desktop app's settings
 
 
-def _install(project: bool, allow: bool) -> int:
+def _desktop_config() -> Path:
+    """The Claude desktop app's settings file, where its local MCP servers are listed."""
+    if sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    elif sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    else:
+        base = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return base / "Claude" / "claude_desktop_config.json"
+
+
+def _edit_desktop(change) -> bool:
+    """Apply `change` to the desktop app's server list; keep a copy of the file as it was. True if it changed."""
+    path = _desktop_config()
+    try:
+        data = json.loads(path.read_text()) if path.exists() else {}
+    except ValueError:
+        raise Failure(f"{path} is not valid JSON, so it was left alone.") from None
+    before = json.dumps(data, sort_keys=True)
+    change(data.setdefault("mcpServers", {}))
+    if json.dumps(data, sort_keys=True) == before:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        shutil.copy2(path, path.with_suffix(".json.before-caddraft"))
+    path.write_text(json.dumps(data, indent=2) + "\n")
+    return True
+
+
+def _register_desktop() -> None:
+    # The desktop app does not start servers with your shell's PATH, so it needs the full path.
+    server = shutil.which("caddraft-mcp") or str(Path(sys.argv[0]).resolve().with_name("caddraft-mcp"))
+    if not Path(server).exists():
+        raise Failure("Could not find the caddraft-mcp program to register. Install with `uv tool install` first.")
+    _edit_desktop(lambda servers: servers.update({DESKTOP_NAME: {"command": server, "args": []}}))
+    print(f"Registered with the Claude desktop app: {_desktop_config()}\n"
+          "Quit and reopen the app; the CadDraft tools then appear in chat sessions that use this computer.")
+
+
+def _install(project: bool, allow: bool, desktop: bool = False) -> int:
     home = _claude_home(project)
     target = home / "skills" / SKILL_NAME
     if target.exists():
@@ -301,6 +343,9 @@ def _install(project: bool, allow: bool) -> int:
         print("Claude will ask before each caddraft command until you allow it. `caddraft install --allow` allows "
               "them all up front; note that building a model runs its script as Python.")
 
+    if desktop:
+        _register_desktop()
+
     found = shutil.which("caddraft")
     if not found:
         print("\nWarning: `caddraft` is not on your PATH, so Claude will not find it.\n"
@@ -318,6 +363,8 @@ def _uninstall(project: bool) -> int:
         print(f"Removed {target}")
     else:
         print(f"Nothing to remove at {target}")
+    if not project and _desktop_config().exists() and _edit_desktop(lambda servers: servers.pop(DESKTOP_NAME, None)):
+        print(f"Removed the desktop app's entry: {_desktop_config()}")
     print(f"Your models are untouched in {root()}. To remove the command too: `uv tool uninstall caddraft-mcp`.")
     return 0
 
@@ -327,7 +374,7 @@ def _uninstall(project: bool) -> int:
 def _run_command(a: argparse.Namespace) -> int:
     c = a.command
     if c == "install":
-        return _install(a.project, a.allow)
+        return _install(a.project, a.allow, a.desktop)
     if c == "uninstall":
         return _uninstall(a.project)
     if c == "mcp":

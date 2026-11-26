@@ -1,5 +1,5 @@
 ---
-name: cad-modeling
+name: caddraft
 description: Design 3D parts and assemblies by writing CadQuery scripts and running them with the `caddraft` command (run, inspect, render, measure, export, view). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, wants to see a model in 3D, or wants to change or measure a model made earlier.
 ---
 
