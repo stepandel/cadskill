@@ -10,16 +10,22 @@ Python MCP server that lets Claude drive a server-side kernel, is not started.
 
 ## What it does
 
-- Builds a sample mounting plate in the kernel and rebuilds it live from five
-  sliders (length, width, thickness, hole diameter, corner radius).
+- Keeps a model as a history of steps (box, cylinder, round corners, hole,
+  move, import) and rebuilds it live as you drag any step's sliders. The
+  sample mounting plate is three such steps.
+- Keeps the exact kernel shape of every part, not only its mesh, so later
+  steps can work on it: you can drill a hole in an imported part.
+- Undo and redo, deleting a step, and rolling back to any earlier step.
+- Saves the model in the browser and reopens it on the next visit.
 - Opens STEP files (`.step`, `.stp`) by file picker or drag-and-drop, keeps the
   assembly structure, and places every part where the assembly puts it.
 - Lists parts by sub-assembly with show/hide, selection, and a "show only
   selected" view.
 - Reports size, volume and triangle count for the selected part.
 
-Not there yet: export, saving, measuring between features, editing imported
-parts.
+Not there yet: export, saving to a file or sharing a model with someone else,
+measuring between features, picking faces or edges for a step (round corners
+only finds vertical edges; a hole is always along Z).
 
 ## Run it locally
 
@@ -28,7 +34,7 @@ Requires Node 20 or newer.
 ```sh
 npm install
 npm start          # builds dist/ and serves it at http://127.0.0.1:8765/
-npm test           # checks the geometry module against the real kernel
+npm test           # checks the document model against the real kernel
 npm test -- path/to/model.step   # also loads a STEP file
 ```
 
@@ -39,11 +45,13 @@ Set `PORT` to serve on a different port.
 | Path | What it is |
 |---|---|
 | `src/index.html` | The page: interface, Three.js viewer, part list, theme |
-| `src/cad-core.js` | Geometry logic: STEP import and assembly walk, sample part, mesh measurement |
-| `src/cad-worker.js` | Web Worker that loads the kernel and runs `cad-core.js` off the main thread |
+| `src/cad-doc.js` | The document: step list, the kernel shapes each step produces, undo, rollback |
+| `src/cad-core.js` | Geometry helpers: STEP import and assembly walk, meshing, mesh measurement |
+| `src/cad-store.js` | Saves the step list and imported files in the browser (IndexedDB) |
+| `src/cad-worker.js` | Web Worker that loads the kernel and runs the document off the main thread |
 | `scripts/build.mjs` | Assembles `dist/` from `src/` and the two npm packages |
 | `scripts/serve.mjs` | Dependency-free static server for `dist/` |
-| `test/smoke.mjs` | Node test of `cad-core.js` |
+| `test/smoke.mjs` | Node test of the document model |
 
 `dist/` and `node_modules/` are generated and not committed.
 
@@ -51,9 +59,23 @@ Set `PORT` to serve on a different port.
 
 `index.html` starts `cad-worker.js` as a module worker. The worker downloads
 the kernel binary, initialises [occt-wasm](https://www.npmjs.com/package/occt-wasm),
-and answers two requests: build the sample plate from parameters, or load a
-STEP file. Each answer is a list of parts with triangle meshes, which the page
-hands to Three.js.
+and owns one `Model` from `cad-doc.js`. The page sends it commands (`add`,
+`update`, `remove`, `roll`, `undo`, `redo`, `open`, `sample`, `load`); each
+answer is the whole document state: the step list, any per-step errors, and the
+parts to draw.
+
+The document is the step list. A step is `{ id, op, params }`; steps that
+change a part name it in `params.body`. Rebuilding walks the list and caches
+each step's resulting shape under a key made from the step and its input, so
+editing step N recomputes only N and what follows, and undo is a cache hit.
+Shapes the current history no longer uses are released after a short grace
+period. A part's key also tells the page whether it already holds that mesh,
+so unchanged parts are not meshed or transferred again.
+
+What is saved is the step list as JSON (`Model.toJSON()`), plus the original
+text of each imported STEP file, stored separately. Shapes are never saved;
+they are rebuilt. The same JSON is what a future Claude-driven server would
+read and write.
 
 Two details are easy to trip over:
 
@@ -68,9 +90,18 @@ Two details are easy to trip over:
   precision, so each part is placed with the kernel's exact transform first
   and meshed afterwards.
 
-STEP part volumes come from the mesh, not the kernel. They are within a
-fraction of a percent, and exact measurement was several seconds slower on a
-27-part assembly. The sample plate uses the exact kernel value.
+Three more things to know:
+
+- **Imported part volumes come from the mesh, not the kernel.** They are
+  within a fraction of a percent, and exact measurement was several seconds
+  slower on a 27-part assembly. Parts built from steps use the exact value.
+- **Saving is per browser.** IndexedDB is tied to this browser and this
+  address; where the browser gives the page no storage the header shows
+  "not saved" and the page still works. Reopening an imported model reads the
+  STEP file again, which takes as long as opening it did.
+- **A step that fails keeps its place.** It is marked in the history with the
+  reason, and the steps after it run on what exists. Adding a step that cannot
+  build is refused instead.
 
 ## Publishing as a Claude artifact
 

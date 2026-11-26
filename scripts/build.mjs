@@ -1,4 +1,4 @@
-// Assembles dist/: the three source files plus the vendored libraries the page loads.
+// Assembles dist/: the source files plus the vendored libraries the page loads.
 // The artifact host caps each file at 20 MiB, so the kernel binary is split into
 // equal-sized pieces that src/cad-worker.js joins again at load time.
 import fs from 'node:fs';
@@ -18,7 +18,7 @@ fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(path.join(dist, 'vendor/occt'), { recursive: true });
 fs.mkdirSync(path.join(dist, 'vendor/three'), { recursive: true });
 
-for (const f of ['index.html', 'cad-core.js', 'cad-worker.js']) fs.copyFileSync(path.join(root, 'src', f), path.join(dist, f));
+for (const f of ['index.html', 'cad-core.js', 'cad-doc.js', 'cad-store.js', 'cad-worker.js']) fs.copyFileSync(path.join(root, 'src', f), path.join(dist, f));
 
 // Library scripts are copied as published, minus their source-map pointers (the maps are not shipped).
 for (const f of OCCT_SCRIPTS) {

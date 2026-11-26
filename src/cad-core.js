@@ -1,7 +1,7 @@
 // Geometry logic shared by the worker (browser) and the Node test.
 // Everything here runs against an occt-wasm kernel instance.
 
-const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
+export const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
 
 // 3x4 row-major affine matrices: result = a * b
 export function compose(a, b) {
@@ -15,7 +15,7 @@ export function compose(a, b) {
   return r;
 }
 
-function meshOut(kernel, shape, quality) {
+export function meshOut(kernel, shape, quality) {
   const m = kernel.tessellate(shape, { linearDeflection: quality, angularDeflection: 0.3 });
   return {
     positions: new Float32Array(m.positions),
@@ -23,19 +23,6 @@ function meshOut(kernel, shape, quality) {
     indices: new Uint32Array(m.indices),
     triangles: m.triangleCount,
   };
-}
-
-function measure(kernel, shape) {
-  const out = {};
-  try {
-    const b = kernel.getBoundingBox(shape);
-    out.size = [b.xmax - b.xmin, b.ymax - b.ymin, b.zmax - b.zmin];
-  } catch (e) { /* leave size out */ }
-  try {
-    const v = kernel.getVolume(shape);
-    if (Number.isFinite(v) && v > 1e-9) out.volume = v;
-  } catch (e) { /* surfaces have no volume */ }
-  return out;
 }
 
 // Size and volume straight from the triangles. Exact kernel measurement is far
@@ -62,8 +49,13 @@ export function meshStats(m) {
   return { size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]], volume: Math.abs(vol) / 6, approx: true };
 }
 
-// Import a STEP file, walk its assembly tree and return one mesh per placed part.
-export function loadStep(kernel, text, quality = 0.05, onPart) {
+// Import a STEP file, walk its assembly tree and return one kernel shape per
+// placed part: { name, path, color, shape }. The caller owns the shapes.
+//
+// Each part is placed with the kernel's exact transform before anything meshes
+// it: some files keep geometry far from the origin, and moving 32-bit mesh
+// vertices afterwards would lose precision.
+export function importStep(kernel, text, onPart) {
   const doc = kernel.importXCAFFromSTEP(text);
   const parts = [];
   try {
@@ -79,21 +71,15 @@ export function loadStep(kernel, text, quality = 0.05, onPart) {
         return;
       }
       if (pinfo.shapeHandle == null) return;
-      const placed = kernel.located(pinfo.shapeHandle, here);
-      const mesh = meshOut(kernel, placed, quality);
-      kernel.release(placed);
-      if (mesh.triangles === 0) return;
-      const part = {
-        name,
-        path,
-        color: pinfo.hasColor ? pinfo.color : info.hasColor ? info.color : null,
-        ...meshStats(mesh),
-        ...mesh,
-      };
-      parts.push(part);
+      const shape = kernel.located(pinfo.shapeHandle, here);
+      if (kernel.subShapeCount(shape, 'face') === 0) { kernel.release(shape); return; }
+      parts.push({ name, path, color: pinfo.hasColor ? pinfo.color : info.hasColor ? info.color : null, shape });
       if (onPart) onPart(parts.length);
     };
     for (const root of doc.getRoots()) walk(root, IDENTITY, []);
+  } catch (e) {
+    for (const p of parts) { try { kernel.release(p.shape); } catch (e2) { /* already gone */ } }
+    throw e;
   } finally {
     doc.close();
   }
@@ -104,32 +90,4 @@ function cleanName(n) {
   if (!n) return '';
   if (n.startsWith('=>')) return '';
   return n;
-}
-
-// The built-in sample: a mounting plate rebuilt from five numbers.
-// This is the "history as parameters" idea in its smallest form.
-export function buildPlate(kernel, p, quality = 0.03) {
-  const made = [];
-  const keep = (s) => { made.push(s); return s; };
-  try {
-    let body = keep(kernel.makeBox(p.length, p.width, p.thickness));
-    const r = Math.min(p.corner, Math.min(p.length, p.width) / 2 - 0.05);
-    if (r > 0.05) {
-      const vertical = kernel.getSubShapes(body, 'edge').filter((e) => {
-        const b = kernel.getBoundingBox(e);
-        return b.zmax - b.zmin > p.thickness * 0.9 && b.xmax - b.xmin < 1e-6 && b.ymax - b.ymin < 1e-6;
-      });
-      body = keep(kernel.fillet(body, vertical, r));
-    }
-    const hr = Math.min(p.hole / 2, Math.min(p.length, p.width) / 2 - 1);
-    if (hr > 0.1) {
-      const drill = keep(kernel.translate(keep(kernel.makeCylinder(hr, p.thickness + 2)), p.length / 2, p.width / 2, -1));
-      body = keep(kernel.cut(body, drill));
-    }
-    const centred = keep(kernel.translate(body, -p.length / 2, -p.width / 2, 0));
-    const part = { name: 'Mounting plate', path: [], color: null, ...measure(kernel, centred), approx: false, ...meshOut(kernel, centred, quality) };
-    return part;
-  } finally {
-    for (const s of made) { try { kernel.release(s); } catch (e) { /* already gone */ } }
-  }
 }
