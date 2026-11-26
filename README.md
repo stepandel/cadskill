@@ -10,16 +10,17 @@ Python MCP server that lets Claude drive a server-side kernel, is not started.
 
 ## What it does
 
-- Builds a sample mounting plate in the kernel and rebuilds it live from five
-  sliders (length, width, thickness, hole diameter, corner radius).
+- Shows the model full-window, with one dock of controls at the bottom (fit
+  view, edges, open file) and a size, volume and triangle readout top-right.
+- Builds a sample mounting plate (40 × 24 × 6 mm) in the kernel as the
+  starting model.
 - Opens STEP files (`.step`, `.stp`) by file picker or drag-and-drop, keeps the
   assembly structure, and places every part where the assembly puts it.
-- Lists parts by sub-assembly with show/hide, selection, and a "show only
-  selected" view.
-- Reports size, volume and triangle count for the selected part.
+- Click a part to select it; the readout and dock then describe that part.
+  With nothing selected they describe the whole assembly.
 
 Not there yet: export, saving, measuring between features, editing imported
-parts.
+parts, a part list with show/hide, editing the sample part's dimensions.
 
 ## Run it locally
 
@@ -38,7 +39,7 @@ Set `PORT` to serve on a different port.
 
 | Path | What it is |
 |---|---|
-| `src/index.html` | The page: interface, Three.js viewer, part list, theme |
+| `src/index.html` | The page: interface, Three.js viewer, readout, theme |
 | `src/cad-core.js` | Geometry logic: STEP import and assembly walk, sample part, mesh measurement |
 | `src/cad-worker.js` | Web Worker that loads the kernel and runs `cad-core.js` off the main thread |
 | `scripts/build.mjs` | Assembles `dist/` from `src/` and the two npm packages |
