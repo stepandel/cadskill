@@ -33,7 +33,7 @@ from .store import root
 IDLE_SECONDS = 3600
 STATE_NAME = ".daemon.json"
 LOCK_NAME = ".daemon.lock"
-VERSION = _installed("cadskill-mcp")
+VERSION = _installed("cadskill")
 
 _token = secrets.token_urlsafe(32)
 _last = time.monotonic()

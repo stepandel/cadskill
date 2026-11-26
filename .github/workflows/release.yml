@@ -1,0 +1,42 @@
+# Publishes the `cadskill` package to PyPI when a version tag is pushed:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# The tag must match `version` in server/pyproject.toml. Publishing uses PyPI's
+# trusted publishing, so no token is stored here: PyPI must list this
+# repository, this workflow (release.yml) and the `pypi` environment as a
+# trusted publisher for the `cadskill` project.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Check that the tag matches the package version
+        run: |
+          version=$(uv version --short)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match version $version in server/pyproject.toml" >&2
+            exit 1
+          fi
+      - name: Check that the viewer is built into the package
+        run: test -s cadskill_mcp/static/viewer.html
+      - run: uv build
+      - name: Check that the wheel installs and runs
+        run: |
+          uv tool install dist/*.whl
+          cadskill --version
+      - run: uv publish

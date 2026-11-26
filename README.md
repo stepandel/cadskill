@@ -24,40 +24,31 @@ token or time limit, both reach about 0.83:
 
 ## Install
 
-### What you need
-
-- macOS or Linux. (Windows is not supported yet: the background process is
-  written for macOS and Linux.)
-- [uv](https://docs.astral.sh/uv/), which installs Python 3.12 and the CAD
-  libraries for you:
-  ```sh
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  ```
-- About 1.5 GB of disk space for CadQuery, OpenCASCADE and VTK.
-- A copy of this repository:
-  ```sh
-  git clone https://github.com/stepandel/cad-modeling.git
-  cd cad-modeling
-  ```
-
-Node is not needed to install: the viewer is built and committed.
-
-### For Claude Code (and any agent with a shell)
+On macOS or Linux, run:
 
 ```sh
-uv tool install ./server    # installs the `cadskill` and `cadskill-mcp` commands
-cadskill install            # copies the skill to ~/.claude/skills/cadskill
+curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh
 ```
 
-If uv says its tool folder is not on your `PATH`, run `uv tool update-shell`
-and open a new terminal.
+That is the whole install. The script installs [uv](https://docs.astral.sh/uv/)
+if you do not have it, uses it to put Python 3.12, CadQuery and the
+`cadskill` command in a folder of their own (about 1.3 GB, mostly
+OpenCASCADE and VTK), and copies the skill to `~/.claude/skills/cadskill`.
+You do not need Python, Node or a copy of this repository. (Windows is not
+supported yet: the background process is written for macOS and Linux.)
 
 Then start a new Claude Code session and ask for a part, for example "model a
 60 × 40 mm mounting plate with four M4 holes". The first build on a computer
 takes one to two minutes while the CAD kernel loads (see
 [The first start is slow](#the-first-start-is-slow)); after that it is quick.
+If the installer says so, open a new terminal first so `cadskill` is on your
+`PATH`.
 
-Options for `cadskill install`:
+Options go after `sh -s --` and are passed to `cadskill install`:
+
+```sh
+curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --desktop
+```
 
 | Option | What it does |
 |---|---|
@@ -65,13 +56,21 @@ Options for `cadskill install`:
 | `--allow` | Add `Bash(cadskill:*)` to that folder's `settings.json`, so Claude does not ask before each command. Building a model runs its script as Python, so this lets Claude run Python without asking; leave it out to approve commands as they come |
 | `--desktop` | Also register the MCP server with the Claude desktop app (below) |
 
+If you already use uv, the installer amounts to:
+
+```sh
+uv tool install cadskill
+cadskill install            # with any of the options above
+```
+
 ### For Claude desktop chat
 
 Chat sessions cannot read skills from `~/.claude` or run commands, but they
-can use the desktop app's local MCP servers. After the two commands above:
+can use the desktop app's local MCP servers. Install with `--desktop` (or run
+`cadskill install --desktop` after installing):
 
 ```sh
-cadskill install --desktop
+curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --desktop
 ```
 
 This adds a `cadskill` entry to `claude_desktop_config.json` (keeping a copy
@@ -85,13 +84,13 @@ where the host shows the viewer inline (MCP Apps), or in Cowork. Use either
 the plugin or the `cadskill` skill, not both: the two skills share a name and
 teach different ways to call the tools.
 
-- **Claude Code**: `claude --plugin-dir .` from this folder.
+- **Claude Code**: `claude --plugin-dir .` from a copy of this repository.
 - **Cowork**: `npm run package`, then upload `dist/cadskill-plugin.zip` at
   Customize > Plugins > Add > Upload plugin. Cowork runs a plugin's local
   server only when the session runs on your computer.
 
-The plugin needs uv but no separate install: `uv` sets up the server the
-first time the plugin starts it.
+The plugin needs [uv](https://docs.astral.sh/uv/) but no separate install:
+`uv` sets up the server the first time the plugin starts it.
 
 ### Check that it works
 
@@ -106,7 +105,7 @@ cadskill models      # lists saved models (none on a new install)
 | What | Where | Why |
 |---|---|---|
 | The skill | `~/.claude/skills/cadskill/SKILL.md` | Tells Claude how to model with `cadskill` and check its work |
-| The commands | `cadskill`, `cadskill-mcp`, in uv's tool folder | Run the scripts and serve the tools; nothing of them lives in Claude's folder |
+| The commands | `cadskill`, `cadskill-mcp`, in uv's tool folder (`~/.local/bin`) | Run the scripts and serve the tools; nothing of them lives in Claude's folder |
 | Your models | `~/Documents/CadSkill/` (or `$CADSKILL_HOME`) | Every version of every model, as plain files |
 
 Nothing else goes into Claude's folder: no hook, and no MCP entry unless you
@@ -115,16 +114,12 @@ either; Claude publishes the page `cadskill export MODEL html` writes.
 
 ### Update
 
-From your copy of the repository:
+Run the install line again, with the options you used the first time. It
+stops the background process, so the next command runs the new version. If
+you registered the desktop app, quit and reopen it as well.
 
-```sh
-git pull
-uv tool install --force --reinstall-package cadskill-mcp ./server   # plain --force reuses the old build
-cadskill install            # add --desktop / --allow / --project as you used them before
-cadskill stop               # the next command starts the background process on the new code
-```
-
-If you registered the desktop app, quit and reopen it as well.
+If you installed CadSkill earlier from a copy of this repository (`uv tool
+install ./server`), the installer removes that install for you.
 
 ### Moving over from CadDraft
 
@@ -148,7 +143,7 @@ exist yet.
 
 ```sh
 cadskill uninstall          # removes the skill, and the desktop app's entry if there is one
-uv tool uninstall cadskill-mcp
+uv tool uninstall cadskill
 ```
 
 Your models stay in `~/Documents/CadSkill/`; delete that folder too if you
@@ -296,6 +291,27 @@ uv run --project server cadskill run part.py  # the command, straight from the s
 After changing the server while a background process is running, `cadskill
 stop` so the next command starts one with the new code.
 
+To try the installer against your working copy instead of PyPI:
+
+```sh
+(cd server && uv build)
+CADSKILL_PACKAGE=server/dist/cadskill-0.1.0-py3-none-any.whl sh install.sh
+```
+
+### Release
+
+Bump `version` in `server/pyproject.toml` (and `.claude-plugin/plugin.json`),
+commit, then push a matching tag:
+
+```sh
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` builds the package and publishes it to PyPI
+through trusted publishing. It needs, once, a trusted publisher on PyPI for
+the `cadskill` project: this repository, workflow `release.yml`, environment
+`pypi`.
+
 The built `viewer.html` is committed so an installed plugin needs no Node.
 Rebuild and commit it whenever `src/` changes.
 
@@ -303,8 +319,11 @@ Rebuild and commit it whenever `src/` changes.
 
 | Path | What it is |
 |---|---|
+| `install.sh` | The one-line installer: uv if missing, then `uv tool install cadskill` and `cadskill install` |
+| `.github/workflows/release.yml` | Publishes the package to PyPI when a `v*` tag is pushed |
 | `.claude-plugin/plugin.json` | Plugin manifest; starts the server with `uv run` |
 | `skills/cadskill/SKILL.md` | The plugin's skill (MCP tools) |
+| `server/pyproject.toml`, `server/README.md` | The `cadskill` package and its PyPI page |
 | `server/cadskill_mcp/skill/SKILL.md` | The skill `cadskill install` copies (`cadskill` commands) |
 | `server/cadskill_mcp/cli.py` | The `cadskill` command and the skill installer |
 | `server/cadskill_mcp/daemon.py` | The background process the command talks to |

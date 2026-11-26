@@ -1,12 +1,24 @@
 [project]
-name = "cadskill-mcp"
+name = "cadskill"
 version = "0.1.0"
-description = "MCP server that lets Claude build, inspect and export CAD models by writing CadQuery scripts."
+description = "3D CAD for Claude: build, inspect and export solid models by writing CadQuery scripts."
+readme = "README.md"
 requires-python = ">=3.12,<3.13"
+keywords = ["cad", "cadquery", "claude", "mcp", "3d", "step", "stl"]
+classifiers = [
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
 dependencies = [
   "cadquery>=2.5,<3",
   "mcp>=1.12,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/stepandel/cad-modeling"
+Source = "https://github.com/stepandel/cad-modeling"
 
 [project.scripts]
 cadskill = "cadskill_mcp.cli:main"

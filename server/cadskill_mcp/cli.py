@@ -27,8 +27,9 @@ from pathlib import Path
 
 from .store import clean, root
 
-VERSION = _installed("cadskill-mcp")
+VERSION = _installed("cadskill")
 SKILL_NAME = "cadskill"
+INSTALL_LINE = "curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh"
 SKILL_SOURCE = Path(__file__).parent / "skill"
 WORK_DIR = ".cadskill"            # in the current folder: pictures and pages for the agent to open
 START_WAIT = 100                  # how long one command waits for a kernel that is still starting
@@ -313,7 +314,8 @@ def _register_desktop() -> None:
     # The desktop app does not start servers with your shell's PATH, so it needs the full path.
     server = shutil.which("cadskill-mcp") or str(Path(sys.argv[0]).resolve().with_name("cadskill-mcp"))
     if not Path(server).exists():
-        raise Failure("Could not find the cadskill-mcp program to register. Install with `uv tool install` first.")
+        raise Failure("Could not find the cadskill-mcp program to register. Install CadSkill with its installer first:\n"
+                      f"  {INSTALL_LINE}")
     _edit_desktop(lambda servers: servers.update({DESKTOP_NAME: {"command": server, "args": []}}))
     print(f"Registered with the Claude desktop app: {_desktop_config()}\n"
           "Quit and reopen the app; the CadSkill tools then appear in chat sessions that use this computer.")
@@ -349,8 +351,7 @@ def _install(project: bool, allow: bool, desktop: bool = False) -> int:
     found = shutil.which("cadskill")
     if not found:
         print("\nWarning: `cadskill` is not on your PATH, so Claude will not find it.\n"
-              "Install it for good with `uv tool install <path to this repo>/server`, then run `uv tool update-shell` "
-              "if uv says its tool folder is not on your PATH.")
+              f"Install it for good with\n  {INSTALL_LINE}\nthen open a new terminal.")
     print("\nStart a new Claude session and ask for a part, e.g. \"model a 60 x 40 mm mounting plate with four M4 holes\".")
     print("The first build on this computer takes a minute or two while the CAD kernel loads.")
     return 0
@@ -365,7 +366,7 @@ def _uninstall(project: bool) -> int:
         print(f"Nothing to remove at {target}")
     if not project and _desktop_config().exists() and _edit_desktop(lambda servers: servers.pop(DESKTOP_NAME, None)):
         print(f"Removed the desktop app's entry: {_desktop_config()}")
-    print(f"Your models are untouched in {root()}. To remove the command too: `uv tool uninstall cadskill-mcp`.")
+    print(f"Your models are untouched in {root()}. To remove the command too: `uv tool uninstall cadskill`.")
     return 0
 
 

@@ -10,8 +10,9 @@ it with `cadskill`. The script is the model: every dimension and every step is
 in it. You do not see the model unless you look, so check your work with the
 numbers `cadskill` prints and the pictures it writes.
 
-If `cadskill` is not found, tell the user to install it (see the CadSkill
-README: `uv tool install` the server, then `cadskill install`) and stop.
+If `cadskill` is not found, tell the user to install it by running
+`curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh`
+in a terminal (macOS or Linux), then open a new terminal, and stop.
 
 ## The loop
 
