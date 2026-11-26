@@ -1,4 +1,4 @@
-"""CAD Bench MCP server: the tools Claude uses to build and check a CAD model.
+"""CadDraft MCP server: the tools Claude uses to build and check a CAD model.
 
 The model is a CadQuery script. Claude sends or edits the script; the server
 runs it in a worker process, keeps every successful run as a version, and
@@ -25,14 +25,15 @@ from pydantic import BaseModel, Field
 from .runner import DEFAULT_TIMEOUT, Problem, Runner, Starting
 from .store import Store, clean
 
-VIEWER_URI = "ui://cad-bench/viewer.html"
+VIEWER_URI = "ui://caddraft/viewer.html"
 VIEWER_FILE = Path(__file__).parent / "static" / "viewer.html"
 VIEWER_PORT = 8791
 SHOWS_VIEWER = {"ui": {"resourceUri": VIEWER_URI}}
 APP_ONLY = {"ui": {"visibility": ["app"]}}
+MODULE_TAG = '<script type="module">'         # where the built viewer's code starts
 
 INSTRUCTIONS = """\
-CAD Bench builds 3D CAD models from CadQuery (Python) scripts. The script is the model.
+CadDraft builds 3D CAD models from CadQuery (Python) scripts. The script is the model.
 
 Loop: run_model with a full script -> read the numbers and look at the four views -> fix with
 edit_model (exact text replacement) -> repeat. Use inspect to list faces or edges before writing a
@@ -46,7 +47,7 @@ If a tool answers that the CAD kernel is still starting, that is normal on first
 minutes, once per computer). Tell the user it is warming up, wait about 20 seconds, and repeat the call.
 """
 
-mcp = FastMCP("cad-bench", instructions=INSTRUCTIONS)
+mcp = FastMCP("caddraft", instructions=INSTRUCTIONS)
 store = Store()
 runner = Runner(start_wait=25)   # a call made while the kernel is still starting answers within 25 s
 _shown = {"model": None, "version": 0}       # what the viewer should be displaying
@@ -101,7 +102,7 @@ def _describe(parts: list[dict]) -> str:
 def _require(model: str) -> str:
     code = store.current(model)
     if code is None:
-        raise Problem(f"There is no model named '{clean(model)}' yet. Create it with run_model.")
+        raise Problem(f"There is no model named '{clean(model)}' yet. Build it first.")
     return code
 
 
@@ -300,7 +301,7 @@ async def measure(a: Selection, b: Selection, model: Model = "default") -> CallT
 
 @mcp.tool()
 async def export(
-    format: Literal["step", "stl", "3mf", "brep", "glb", "svg"],
+    format: Literal["step", "stl", "3mf", "brep", "glb", "svg", "html"],
     model: Model = "default",
     parts: Annotated[list[str] | None, Field(description="Only export these parts. Default: all.")] = None,
     path: Annotated[str | None, Field(description="Where to write the file. Default: the model's exports folder.")] = None,
@@ -308,10 +309,20 @@ async def export(
     """Write the current model to a file and return its path.
 
     STEP and GLB keep part names and colours. STL and 3MF are meshes for printing. SVG is a line drawing.
+    HTML is the 3D viewer with this version of the model inside it: one file that opens in any browser
+    and needs no server, for sharing or for publishing as a page.
     """
     try:
         code = _require(model)
         target = str(Path(path).expanduser()) if path else store.export_path(model, f"{clean(model)}-v{store.version(model)}.{format}")
+        if format == "html":
+            if parts:
+                raise Problem("An HTML export always holds the whole model; leave parts out.")
+            page = await anyio.to_thread.run_sync(standalone_page, model, store.version(model))
+            Path(target).parent.mkdir(parents=True, exist_ok=True)
+            Path(target).write_text(page)
+            return _text(f"Wrote {target} ({len(page.encode()):,} bytes): the viewer with '{clean(model)}' "
+                         f"version {store.version(model)} inside.")
         out = await _work("export", 180, code=code, model_dir=str(store.dir(model)), fmt=format, path=target, names=parts)
     except Problem as exc:
         return _text(str(exc), error=True)
@@ -372,10 +383,19 @@ def get_history(model: str) -> CallToolResult:
 def _viewer_html() -> str:
     if VIEWER_FILE.exists():
         return VIEWER_FILE.read_text()
-    return "<!doctype html><title>CAD Bench</title><p>The viewer has not been built. Run <code>npm run build</code>.</p>"
+    return "<!doctype html><title>CadDraft</title><p>The viewer has not been built. Run <code>npm run build</code>.</p>"
 
 
-@mcp.resource(VIEWER_URI, name="CAD Bench viewer", mime_type="text/html;profile=mcp-app")
+def standalone_page(model: str, version: int) -> str:
+    """The viewer page with one version's meshes written into it. Blocking."""
+    html = _viewer_html()
+    if MODULE_TAG not in html:
+        raise Problem("The viewer has not been built. Run `npm run build`.")
+    data = json.dumps(_mesh_for(model, version)).replace("</", "<\\/")      # must not end the script element early
+    return html.replace(MODULE_TAG, f"<script>window.CADDRAFT_MODEL = {data};</script>\n{MODULE_TAG}", 1)
+
+
+@mcp.resource(VIEWER_URI, name="CadDraft viewer", mime_type="text/html;profile=mcp-app")
 def viewer() -> str:
     """The 3D viewer shown beside run_model, edit_model and restore_version."""
     return _viewer_html()
@@ -422,13 +442,13 @@ class _Page(BaseHTTPRequestHandler):
 _http: ThreadingHTTPServer | None = None
 
 
-def start_viewer_page(port: int = VIEWER_PORT) -> str:
+def start_viewer_page(port: int = VIEWER_PORT, handler: type[BaseHTTPRequestHandler] | None = None) -> str:
     """Serve the viewer on this computer only and return its address."""
     global _http
     if _http is None:
         for candidate in range(port, port + 20):
             try:
-                _http = ThreadingHTTPServer(("127.0.0.1", candidate), _Page)
+                _http = ThreadingHTTPServer(("127.0.0.1", candidate), handler or _Page)
                 break
             except OSError:
                 continue
@@ -456,7 +476,7 @@ def main() -> None:
 
     runner.warm()        # start loading CadQuery now, so it is ready (or nearly) by the first tool call
     if "--page" in sys.argv:
-        print(f"CAD Bench viewer at {start_viewer_page()}", file=sys.stderr)
+        print(f"CadDraft viewer at {start_viewer_page()}", file=sys.stderr)
         threading.Event().wait()
     mcp.run()
 

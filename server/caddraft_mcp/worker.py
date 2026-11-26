@@ -113,7 +113,7 @@ def _execute(code: str, model_dir: str) -> dict:
             raise ModelError(f"No imported file named '{filename}'. Use the import_file tool first.")
         return path
 
-    env = {"__name__": "__cadbench__", "cq": cq, "cadquery": cq, "show_object": show_object,
+    env = {"__name__": "__caddraft__", "cq": cq, "cadquery": cq, "show_object": show_object,
            "debug": lambda *a, **k: None, "asset": asset, "math": math}
     out = io.StringIO()
     old_cwd = os.getcwd()

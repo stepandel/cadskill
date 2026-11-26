@@ -1,7 +1,8 @@
 // Where models come from. Inside a Claude conversation the page is an MCP App:
 // the host tells it which model version a tool just built, and it asks the
 // server for that version's meshes. Opened as a plain local page, it polls the
-// server instead. Either way the rest of the page just receives parts.
+// server instead. A page exported as one file has the model embedded and needs
+// no server. Either way the rest of the page just receives parts.
 import { App } from '@modelcontextprotocol/ext-apps';
 
 const POLL_MS = 1000;
@@ -30,18 +31,27 @@ function decode(data) {
 // handlers: latest(model, version)              the server built (or restored) a version
 //           status(text, bad)                   something to tell the person
 //           theme('light' | 'dark')             the host's colour scheme
-// Returns { mesh(model, version), history(model) } for the page to load any version.
+// Returns { mesh(model, version), history(model) } for the page to load any version;
+// history is null when there is no server to ask (an exported page).
 export async function connect(handlers) {
   let latest = '';
   const follow = (model, version) => {
     const id = model + '@' + version;
     if (!model || !version || id === latest) return;
     latest = id;
-    handlers.latest(model, version);
+    queueMicrotask(() => handlers.latest(model, version));   // never before connect() has returned its API
   };
 
+  // A page written by `export html` carries its model with it and talks to nobody.
+  // There is no history to read, so history is null.
+  if (window.CADDRAFT_MODEL) {
+    const data = decode(window.CADDRAFT_MODEL);
+    follow(data.model, data.version);
+    return { mesh: async () => data, history: null };
+  }
+
   if (window.parent !== window) {
-    const app = new App({ name: 'CAD Bench viewer', version: '0.1.0' });
+    const app = new App({ name: 'CadDraft viewer', version: '0.1.0' });
     const call = async (name, args) => {
       const res = await app.callServerTool({ name, arguments: args });
       const text = res.content && res.content.find((c) => c.type === 'text');
@@ -81,7 +91,7 @@ export async function connect(handlers) {
       if (state.model) follow(state.model, state.version);
       else handlers.status('No model yet. Ask Claude to build one.');
     } catch (e) {
-      handlers.status('The CAD Bench server is not running.', true);
+      handlers.status('The CadDraft server is not running.', true);
     }
     setTimeout(poll, POLL_MS);
   };

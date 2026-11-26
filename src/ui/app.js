@@ -55,4 +55,5 @@ setupHistory({
   load: async () => (state.model ? (await ready).history(state.model) : { versions: [] }),
   pick: (version) => { if (state.model) show(version); },
 });
+ready.then((api) => { if (!api.history) $('toggle-history').hidden = true; });
 $('back').addEventListener('click', () => show(state.latest));

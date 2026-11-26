@@ -1,5 +1,5 @@
 [project]
-name = "cadbench-mcp"
+name = "caddraft-mcp"
 version = "0.1.0"
 description = "MCP server that lets Claude build, inspect and export CAD models by writing CadQuery scripts."
 requires-python = ">=3.12,<3.13"
@@ -9,7 +9,8 @@ dependencies = [
 ]
 
 [project.scripts]
-cadbench-mcp = "cadbench_mcp.server:main"
+caddraft = "caddraft_mcp.cli:main"
+caddraft-mcp = "caddraft_mcp.server:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]
@@ -19,7 +20,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cadbench_mcp"]
+packages = ["caddraft_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

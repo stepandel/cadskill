@@ -26,6 +26,14 @@ class Starting(Problem):
     """The kernel is not ready yet. Nothing is wrong; the caller should try again shortly."""
 
 
+STARTING = ("The CAD kernel is still starting", "The CAD kernel is restarting")     # how every Starting message begins
+
+
+def is_starting(message: str) -> bool:
+    """Whether a message that reached the caller as text is a Starting one."""
+    return message.startswith(STARTING)
+
+
 def _child(conn) -> None:
     os.dup2(2, 1)        # the server speaks MCP on stdout; nothing in the worker may write there
     from . import worker
@@ -45,6 +53,11 @@ class Runner:
         self._booting = False
         self._boot_started = 0.0
         self._boot_error: str | None = None
+
+    @property
+    def ready(self) -> bool:
+        """True once the kernel has started and can take a request."""
+        return self._ready.is_set()
 
     def warm(self) -> None:
         """Start the kernel in the background if it is not running or already starting."""
@@ -109,14 +122,14 @@ class Runner:
             if error:
                 raise Problem(error)
             raise Starting(
-                f"The CAD kernel is still starting ({waited} s so far). The first start on a computer takes one to "
+                f"{STARTING[0]} ({waited} s so far). The first start on a computer takes one to "
                 "two minutes while the system checks the CAD libraries; later starts take a few seconds. "
                 "Nothing is wrong and nothing was changed. Try the same call again in about 20 seconds.")
         with self._busy:
             with self._state:
                 conn = self._conn
             if conn is None:                 # stopped between the wait and here
-                raise Starting("The CAD kernel is restarting. Try the same call again in a few seconds.")
+                raise Starting(f"{STARTING[1]}. Try the same call again in a few seconds.")
             try:
                 conn.send((op, kwargs))
                 if not conn.poll(timeout):

@@ -2,13 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "cad-bench",
+      "name": "caddraft",
       "runtimeExecutable": "uv",
       "runtimeArgs": [
         "run",
         "--project",
         "server",
-        "cadbench-mcp",
+        "caddraft-mcp",
         "--page"
       ],
       "port": 8791
