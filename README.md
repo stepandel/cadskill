@@ -44,7 +44,12 @@ Set `PORT` to serve on a different port.
 
 | Path | What it is |
 |---|---|
-| `src/index.html` | The page: interface, Three.js viewer, part list, theme |
+| `src/index.html` | The page's markup and styles |
+| `src/ui/app.js` | Page entry point: redraws from each document answer, saving, opening files, toolbar |
+| `src/ui/viewer.js` | Three.js view: the drawn parts, selection, picking, camera, theme |
+| `src/ui/history-panel.js` | The History list: steps, sliders, rollback, delete, add |
+| `src/ui/parts-panel.js` | The Parts list and the Selection read-out |
+| `src/ui/kernel-client.js` | Starts the worker and queues commands to it |
 | `src/cad-doc.js` | The document: step list, the kernel shapes each step produces, undo, rollback |
 | `src/cad-core.js` | Geometry helpers: STEP import and assembly walk, meshing, mesh measurement |
 | `src/cad-store.js` | Saves the step list and imported files in the browser (IndexedDB) |
@@ -57,7 +62,7 @@ Set `PORT` to serve on a different port.
 
 ## How it fits together
 
-`index.html` starts `cad-worker.js` as a module worker. The worker downloads
+`ui/kernel-client.js` starts `cad-worker.js` as a module worker. The worker downloads
 the kernel binary, initialises [occt-wasm](https://www.npmjs.com/package/occt-wasm),
 and owns one `Model` from `cad-doc.js`. The page sends it commands (`add`,
 `update`, `remove`, `roll`, `undo`, `redo`, `open`, `sample`, `load`); each

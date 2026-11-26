@@ -18,7 +18,7 @@ fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(path.join(dist, 'vendor/occt'), { recursive: true });
 fs.mkdirSync(path.join(dist, 'vendor/three'), { recursive: true });
 
-for (const f of ['index.html', 'cad-core.js', 'cad-doc.js', 'cad-store.js', 'cad-worker.js']) fs.copyFileSync(path.join(root, 'src', f), path.join(dist, f));
+fs.cpSync(path.join(root, 'src'), dist, { recursive: true });
 
 // Library scripts are copied as published, minus their source-map pointers (the maps are not shipped).
 for (const f of OCCT_SCRIPTS) {
