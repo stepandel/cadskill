@@ -1,6 +1,17 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "cad-bench", "runtimeExecutable": "node", "runtimeArgs": ["scripts/serve.mjs"], "port": 8765 }
+    {
+      "name": "cad-bench",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "server",
+        "cadbench-mcp",
+        "--page"
+      ],
+      "port": 8791
+    }
   ]
 }

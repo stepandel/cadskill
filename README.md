@@ -1,128 +1,146 @@
 # CAD Bench
 
-A CAD viewer and small parametric bench that runs entirely in the browser. The
-OpenCASCADE geometry kernel is loaded as WebAssembly, so there is nothing to
-install and files never leave the device. It is built to be published as a
-Claude artifact, and also runs from any static file server.
+A Claude plugin for 3D CAD. Claude builds real solid models by writing
+[CadQuery](https://cadquery.readthedocs.io) scripts, checks them with
+measurements and rendered views, and exports STEP, STL and other files. A
+viewer page shows the person the same model as it changes.
 
-This is the browser-only half of a two-part exploration. The second half, a
-Python MCP server that lets Claude drive a server-side kernel, is not started.
+There are no modelling controls for the person to operate. You describe the
+part; Claude does the modelling through the plugin's tools.
 
-## What it does
+## What is in the plugin
 
-- Shows the model full-window, with one dock of controls at the bottom (fit
-  view, edges, history, open file) and a size, volume and triangle readout
-  top-right.
-- Keeps a model as a history of steps (box, cylinder, round corners, hole,
-  move, import) and rebuilds it live as you drag any step's sliders. The
-  history opens from the dock as a floating panel. The sample mounting plate
-  (40 × 24 × 6 mm) is three such steps.
-- Keeps the exact kernel shape of every part, not only its mesh, so later
-  steps can work on it: you can drill a hole in an imported part.
-- Undo and redo, deleting a step, and rolling back to any earlier step.
-- Saves the model in the browser and reopens it on the next visit.
-- Opens STEP files (`.step`, `.stp`) by file picker or drag-and-drop, keeps the
-  assembly structure, and places every part where the assembly puts it.
-- Click a part to select it; the readout and dock then describe that part.
-  With nothing selected they describe the whole model.
+| Piece | What it is |
+|---|---|
+| MCP server (`server/`) | Python. Runs CadQuery scripts and exposes the tools below |
+| Skill (`skills/cad-modeling/`) | Tells Claude how to model with the tools and check its work |
+| Viewer (`src/`, built into the server) | Three.js page that displays the current model |
 
-Not there yet: export, saving to a file or sharing a model with someone else,
-measuring between features, a part list with show/hide, picking faces or edges
-for a step (round corners only finds vertical edges; a hole is always along Z).
+## How Claude works with a model
 
-## Run it locally
+The model is a CadQuery script. Claude sends a full script with `run_model`
+or changes the current one with `edit_model`. Each reply carries every part's
+size, volume and extents, anything the script printed, and one picture with
+four views. A script that fails changes nothing: the reply names the failing
+line and the previous version stays current.
 
-Requires Node 20 or newer.
+| Tool | Purpose |
+|---|---|
+| `run_model` | Build from a complete script and save a new version |
+| `edit_model` | Exact text replacement in the current script, then rebuild |
+| `get_model` | The current script, version number and parts |
+| `render` | A named view or custom direction; optional section cut; highlight what a selector matches |
+| `inspect` | List a part's faces, edges or vertices with position, type, normal and size |
+| `measure` | Shortest distance (and angle, where it applies) between two selections |
+| `export` | STEP, STL, 3MF, GLB, BREP or SVG |
+| `import_file` | Make a STEP or BREP file available to the script |
+| `list_versions`, `restore_version` | History and undo |
+| `list_models` | Models saved on this computer |
+| `open_viewer` | Address of the live viewer page |
+| `get_mesh` | Used by the viewer only; hidden from Claude by hosts that support MCP Apps |
+
+Models are plain files, one folder each, under `~/Documents/CAD Bench/`
+(set `CADBENCH_HOME` to move them): `current.py`, every version under
+`versions/`, imported files under `assets/`, exported files under `exports/`.
+
+## Install
+
+Requires [uv](https://docs.astral.sh/uv/). The server pins Python 3.12 and
+its dependencies; `uv` downloads them the first time the server starts. That
+first start is slow (CadQuery and VTK are several hundred megabytes, and the
+first import can take over a minute).
+
+- **Claude Code**: `claude --plugin-dir .` from this folder.
+- **Cowork**: `npm run package`, then upload `dist/cad-bench-plugin.zip` at
+  Customize > Plugins > Add > Upload plugin. Cowork runs a plugin's local
+  server only when the session runs on your computer.
+
+### What has and has not been tried
+
+Tested here: the server over stdio, every tool, and the viewer as a local
+page. `claude plugin validate .` passes.
+
+Not yet tried in a real host:
+
+- **The inline viewer.** The server offers the viewer as an MCP App
+  (`ui://cad-bench/viewer.html`). Whether the Claude desktop app renders it
+  inline from a plugin's local server is untested. If it does not, Claude
+  still gets the pictures, and `open_viewer` gives a local address.
+- **Cowork.** Whether `uv` can install the dependencies where Cowork runs
+  the server is untested.
+- **Plain chat.** Chat ignores a plugin's local server. The documented route
+  there is a desktop extension (`.mcpb`); that packaging is not built yet.
+- **Claude Code** shows MCP Apps as text, so there the viewer is the local
+  page.
+
+## Trust
+
+A CadQuery script is ordinary Python. It runs on your computer with your
+permissions, the same as any code Claude runs for you. The server runs
+scripts in a separate process and stops them after a time limit, which
+contains hangs and crashes; it is not a security sandbox.
+
+## Develop
 
 ```sh
-npm install
-npm start          # builds dist/ and serves it at http://127.0.0.1:8765/
-npm test           # checks the document model against the real kernel
-npm test -- path/to/model.step   # also loads a STEP file
+npm install                 # viewer build tools
+npm run build               # bundles the viewer into server/cadbench_mcp/static/viewer.html
+npm test                    # server tests against the real kernel (uv run --project server pytest)
+npm run package             # build + dist/cad-bench-plugin.zip
+uv run --project server cadbench-mcp --page   # serve only the viewer page, at http://127.0.0.1:8791/
 ```
 
-Set `PORT` to serve on a different port.
+The built `viewer.html` is committed so an installed plugin needs no Node.
+Rebuild and commit it whenever `src/` changes.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
-| `src/index.html` | The page's markup and styles |
-| `src/ui/app.js` | Page entry point: redraws from each document answer, saving, opening files, dock buttons |
-| `src/ui/viewer.js` | Three.js view: the drawn parts, selection, picking, camera, theme |
-| `src/ui/history-panel.js` | The History panel: steps, sliders, rollback, delete, add |
+| `.claude-plugin/plugin.json` | Plugin manifest; starts the server with `uv run` |
+| `skills/cad-modeling/SKILL.md` | The modelling skill |
+| `server/cadbench_mcp/server.py` | The tools, the viewer resource and the local viewer page |
+| `server/cadbench_mcp/worker.py` | Everything that touches CadQuery: running scripts, describing parts, meshing, rendering, exporting |
+| `server/cadbench_mcp/runner.py` | Starts the worker process and replaces it on a timeout or crash |
+| `server/cadbench_mcp/store.py` | Models and versions on disk |
+| `server/tests/` | Tests through the worker process and through an MCP client |
+| `src/index.html` | The viewer's markup and styles |
+| `src/ui/app.js` | Viewer entry point |
+| `src/ui/host.js` | Gets models from the host (MCP App) or by polling the local server |
+| `src/ui/viewer.js` | Three.js view: parts, selection, picking, camera, theme |
 | `src/ui/readout.js` | The top-right readout and the dock's part label |
-| `src/ui/kernel-client.js` | Starts the worker and queues commands to it |
-| `src/cad-doc.js` | The document: step list, the kernel shapes each step produces, undo, rollback |
-| `src/cad-core.js` | Geometry helpers: STEP import and assembly walk, meshing, mesh measurement |
-| `src/cad-store.js` | Saves the step list and imported files in the browser (IndexedDB) |
-| `src/cad-worker.js` | Web Worker that loads the kernel and runs the document off the main thread |
-| `scripts/build.mjs` | Assembles `dist/` from `src/` and the two npm packages |
-| `scripts/serve.mjs` | Dependency-free static server for `dist/` |
-| `test/smoke.mjs` | Node test of the document model |
-
-`dist/` and `node_modules/` are generated and not committed.
+| `scripts/build.mjs` | Bundles the viewer into one HTML file |
+| `scripts/package.mjs` | Zips the plugin for upload |
 
 ## How it fits together
 
-`ui/kernel-client.js` starts `cad-worker.js` as a module worker. The worker downloads
-the kernel binary, initialises [occt-wasm](https://www.npmjs.com/package/occt-wasm),
-and owns one `Model` from `cad-doc.js`. The page sends it commands (`add`,
-`update`, `remove`, `roll`, `undo`, `redo`, `open`, `sample`, `load`); each
-answer is the whole document state: the step list, any per-step errors, and the
-parts to draw.
+`server.py` is a thin MCP front. Every operation that needs geometry goes to
+one long-lived worker process, which imports CadQuery once and caches the
+shapes of the last few scripts by hash. Because each request names its
+script, the worker holds no state the server depends on: it can be killed on
+a timeout and the next request simply rebuilds.
 
-The document is the step list. A step is `{ id, op, params }`; steps that
-change a part name it in `params.body`. Rebuilding walks the list and caches
-each step's resulting shape under a key made from the step and its input, so
-editing step N recomputes only N and what follows, and undo is a cache hit.
-Shapes the current history no longer uses are released after a short grace
-period. A part's key also tells the page whether it already holds that mesh,
-so unchanged parts are not meshed or transferred again.
+Pictures are drawn off-screen with VTK (already a CadQuery dependency), with
+no perspective so lengths can be compared by eye.
 
-What is saved is the step list as JSON (`Model.toJSON()`), plus the original
-text of each imported STEP file, stored separately. Shapes are never saved;
-they are rebuilt. The same JSON is what a future Claude-driven server would
-read and write.
+The viewer never sees a script. A build tool's result carries only the model
+name and version; the viewer then asks for that version's meshes through
+`get_mesh` (inline) or `/mesh` (local page), so triangle data stays out of
+Claude's context.
 
-Two details are easy to trip over:
+## History
 
-- **The kernel binary is split in two.** The artifact host caps files at
-  20 MiB and the binary is 20.4 MiB, so `build.mjs` writes `kernel-0.wasm` and
-  `kernel-1.wasm` and the worker joins them. The piece count and byte total
-  are hard-coded in `cad-worker.js`; the build fails with a clear message if
-  an occt-wasm upgrade changes them.
-- **Parts are meshed in their assembled position.** Some STEP files keep part
-  geometry far from the origin (the test hand has coordinates around
-  130,000 mm). Meshing in place and then moving 32-bit vertices loses
-  precision, so each part is placed with the kernel's exact transform first
-  and meshed afterwards.
-
-Three more things to know:
-
-- **Imported part volumes come from the mesh, not the kernel.** They are
-  within a fraction of a percent, and exact measurement was several seconds
-  slower on a 27-part assembly. Parts built from steps use the exact value.
-- **Saving is per browser.** IndexedDB is tied to this browser and this
-  address; where the browser gives the page no storage the History panel
-  shows "not saved" and the page still works. Reopening an imported model reads the
-  STEP file again, which takes as long as opening it did.
-- **A step that fails keeps its place.** It is marked in the history with the
-  reason, and the steps after it run on what exists. Adding a step that cannot
-  build is refused instead.
-
-## Publishing as a Claude artifact
-
-Run `npm run build` and publish every file in `dist/` with its relative path.
-Artifact pages may only fetch their own files, which is why Three.js and the
-kernel are vendored into `dist/` instead of loaded from a CDN.
+Earlier versions ran the OpenCASCADE kernel in the browser as WebAssembly,
+with a step list edited in the page. The last commit of that design is
+tagged `browser-kernel`.
 
 ## Dependencies
 
-- `occt-wasm` 5.18.5: OpenCASCADE compiled to WebAssembly. The package is
-  MIT OR Apache-2.0; the OpenCASCADE kernel inside it is LGPL-2.1 with an
-  exception.
-- `three` 0.187.0: rendering (MIT)
+- `cadquery` (Apache-2.0) on the OpenCASCADE kernel (LGPL-2.1 with an
+  exception), and `vtk` (BSD) for pictures
+- `mcp`: the Model Context Protocol Python SDK (MIT)
+- `three` 0.187.0 (MIT) and `@modelcontextprotocol/ext-apps` 2.0.4 in the
+  viewer
+- `esbuild` to build the viewer
 
-Versions are pinned exactly. Review the licences of both packages before
-distributing a build.
+Review the licences before distributing a build.

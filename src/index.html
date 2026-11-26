@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
 <style>
   /* Layout: the model fills the page. A wordmark and a readout sit in the top corners, one dock of controls at the bottom.
-     The history opens from the dock as a floating panel on the left. */
+     There are no modelling controls: Claude changes the model, this page shows it. */
   :root {
     --paper: #e9edf1;
     --panel: #f7f9fa;
@@ -50,14 +50,14 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { height: 100%; min-height: 480px; margin: 0; }
   body {
     background: var(--paper);
     color: var(--ink);
     font: 14px/1.45 var(--body);
     overflow: hidden;
   }
-  button, .filebtn {
+  button {
     font: 500 13px/1 var(--body);
     color: var(--ink);
     background: transparent;
@@ -67,12 +67,9 @@
     cursor: pointer;
     white-space: nowrap;
   }
-  button:hover, .filebtn:hover { border-color: var(--accent); }
-  button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-  .filebtn { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); position: relative; display: inline-block; }
-  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
-  button:disabled { opacity: 0.5; cursor: default; }
 
   /* The model fills the page; everything else floats over it. */
   main { position: fixed; inset: 0; }
@@ -104,37 +101,6 @@
   .sep { width: 1px; height: 20px; background: var(--rule); }
   .tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
-  /* History: closed until asked for, so the model keeps the window. */
-  #history {
-    position: absolute; left: 24px; top: 56px; width: 288px; max-width: calc(100vw - 32px);
-    max-height: calc(100% - 56px - 112px); overflow-y: auto;
-    display: flex; flex-direction: column; gap: 12px; padding: 16px;
-    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
-  }
-  #history h2 {
-    font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
-    margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
-  }
-  #history h2 span { font: 400 12px/1 var(--mono); letter-spacing: 0; text-transform: none; }
-  #history .tools { justify-content: flex-start; }
-  #history .tools button { padding: 6px 8px; }
-  .hint { color: var(--muted); font-size: 13px; margin: 0; }
-  #steps { display: flex; flex-direction: column; gap: 12px; }
-  #steps:empty { display: none; }
-  .step { display: flex; flex-direction: column; gap: 8px; }
-  .step.off { opacity: 0.45; }
-  .stephead { display: flex; align-items: center; gap: 8px; }
-  .stephead b { flex: 1; font-weight: 500; overflow-wrap: anywhere; min-width: 0; }
-  .stephead button { padding: 4px 0; min-width: 26px; font: 500 12px/1 var(--mono); }
-  .stephead .del { border-color: transparent; color: var(--muted); font-size: 15px; }
-  .stephead .del:hover { color: var(--bad); border-color: var(--bad); }
-  .step.bad .stephead b, .steperr { color: var(--bad); }
-  .steperr { margin: 0; font-size: 13px; }
-  .param { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: baseline; }
-  .param label { font-size: 13px; }
-  .param output { font: 500 13px/1 var(--mono); font-variant-numeric: tabular-nums; }
-  .param input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
-
   #status {
     position: absolute; left: 16px; right: 16px; bottom: 96px;
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px;
@@ -143,61 +109,27 @@
   }
   #status .msg { background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 10px; }
   #status .msg.bad { color: var(--bad); border-color: var(--bad); }
-  #meter { width: 160px; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
-  #meter i { display: block; height: 100%; width: 0; background: var(--accent); }
-  #drop {
-    position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 8px;
-    display: none; align-items: center; justify-content: center;
-    font: 600 16px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
-    background: color-mix(in srgb, var(--paper) 80%, transparent);
-    pointer-events: none;
-  }
-  main.dragging #drop { display: flex; }
   [hidden] { display: none !important; }
 
   @media (max-width: 720px) {
     .sep { display: none; }
     #dock { bottom: 16px; padding: 8px; }
     #status { bottom: 124px; }
-    #history { left: 16px; top: 48px; max-height: calc(100% - 48px - 150px); }
   }
 </style>
-<script type="importmap">
-{ "imports": { "three": "./vendor/three/three.module.js" } }
-</script>
 </head>
 <body>
 <main id="main">
   <div id="stage"></div>
   <h1>CAD Bench</h1>
   <div id="readout" aria-live="polite"><div id="r-size">&nbsp;</div><div id="r-meta">&nbsp;</div></div>
-  <section id="history" aria-label="History" hidden>
-    <h2>History <span id="saved"></span></h2>
-    <div class="tools">
-      <button type="button" id="undo" disabled>Undo</button>
-      <button type="button" id="redo" disabled>Redo</button>
-      <button type="button" id="sample">Sample part</button>
-    </div>
-    <div id="steps"></div>
-    <div class="tools" id="add">
-      <button type="button" data-op="box">+ Box</button>
-      <button type="button" data-op="cylinder">+ Cylinder</button>
-      <button type="button" data-op="hole">+ Hole</button>
-      <button type="button" data-op="fillet">+ Round corners</button>
-      <button type="button" data-op="move">+ Move</button>
-    </div>
-    <p class="hint">The model is rebuilt from these steps, in order. Click a step's number to roll back to it. Hole, Round corners and Move apply to the selected part.</p>
-  </section>
-  <div id="drop">Drop a STEP file to open it</div>
-  <div id="status"><span class="msg" id="msg">Loading the geometry kernel</span><span id="meter"><i></i></span></div>
+  <div id="status"><span class="msg" id="msg">Waiting for a model</span></div>
   <div id="dock">
-    <div class="part"><span class="chip" id="chip"></span><span id="name">Sample part</span></div>
+    <div class="part"><span class="chip" id="chip"></span><span id="name">Model</span></div>
     <span class="sep"></span>
     <div class="tools">
       <button type="button" id="fit">Fit view</button>
       <button type="button" id="edges" aria-pressed="true">Edges</button>
-      <button type="button" id="toggle-history" aria-pressed="false" aria-controls="history">History</button>
-      <label class="filebtn">Open STEP file<input type="file" id="file" accept=".step,.stp,.STEP,.STP"></label>
     </div>
   </div>
 </main>

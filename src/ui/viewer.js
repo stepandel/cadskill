@@ -2,7 +2,7 @@
 // It owns `view.parts` and `view.selected`; the rest of the page reads them and
 // is told about selection changes through onSelect.
 import * as THREE from 'three';
-import { OrbitControls } from '../vendor/three/OrbitControls.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { $, css } from './dom.js';
 
 // parts: { id, key, step, name, path, size, volume, approx, triangles, mesh, lines, base, box }

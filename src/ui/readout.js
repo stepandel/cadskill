@@ -8,7 +8,7 @@ const dims = (v) => mm(v[0]) + ' × ' + mm(v[1]) + ' × ' + mm(v[2]) + ' mm';
 const volume = (p) => (p.approx ? '≈ ' : '') + (p.volume / 1000).toFixed(p.volume < 10000 ? 3 : 2) + ' cm³';
 let sourceName = 'Model';
 
-// The name shown when no single part is being described: the opened file, or 'Model'.
+// The name shown when no single part is being described: the model's name and version.
 export function setSourceName(name) { sourceName = name; }
 
 export function describe() {
