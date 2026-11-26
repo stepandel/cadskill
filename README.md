@@ -8,6 +8,20 @@ viewer page shows the person the same model as it changes.
 There are no modelling controls for the person to operate. You describe the
 part; Claude does the modelling.
 
+## Which model to use
+
+How well this works depends mostly on the model writing the scripts.
+[BenchCAD 2.1](https://benchcad.com/blog/benchcad-2-1), a benchmark of
+programmatic CAD on real engineering work, puts Claude Fable 5.2 and
+GPT-6.2 Astra at the top: Fable 5.2 scores 0.754 at max effort in the
+standard harness, and Astra 0.825 at max for $5.43 per case. In the track
+that runs models in their own agent harness (Claude Code, Codex) with no
+token or time limit, both reach about 0.83:
+
+![BenchCAD 2.1, customized harness: score against cost per case for Claude and OpenAI models](docs/benchcad-2-1.png)
+
+*Customized-harness results from [BenchCAD 2.1](https://benchcad.com/blog/benchcad-2-1).*
+
 ## Install
 
 ### What you need
