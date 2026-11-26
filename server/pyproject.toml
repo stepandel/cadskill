@@ -1,10 +1,10 @@
 [project]
 name = "cadskill"
 version = "0.1.0"
-description = "3D CAD for Claude: build, inspect and export solid models by writing CadQuery scripts."
+description = "3D CAD for Claude and Codex: build, inspect and export solid models by writing CadQuery scripts."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-keywords = ["cad", "cadquery", "claude", "mcp", "3d", "step", "stl"]
+keywords = ["cad", "cadquery", "claude", "codex", "mcp", "3d", "step", "stl"]
 classifiers = [
   "Programming Language :: Python :: 3.12",
   "Operating System :: MacOS",

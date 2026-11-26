@@ -10,9 +10,14 @@ it with `cadskill`. The script is the model: every dimension and every step is
 in it. You do not see the model unless you look, so check your work with the
 numbers `cadskill` prints and the pictures it writes.
 
-If `cadskill` is not found, tell the user to install it by running
-`curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh`
-in a terminal (macOS or Linux), then open a new terminal, and stop.
+This skill works in Claude Code and Codex. If `cadskill` is not found, use
+the install instructions for the current agent (macOS or Linux):
+
+- Claude Code: `curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh`
+- Codex: `curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --agent codex`
+
+Tell the user which command to run and to open a new terminal afterward,
+then stop.
 
 ## The loop
 
@@ -21,7 +26,8 @@ in a terminal (macOS or Linux), then open a new terminal, and stop.
 2. **Build it**: `cadskill run bracket.py`. It prints each part's size, volume
    and extents, and writes one picture with four views (iso, top, front,
    right) to `.cadskill/bracket.png`.
-3. **Read the picture** with your file-reading tool and compare it with what
+3. **Open the picture** with an image-viewing tool (such as Codex's
+   `view_image`) and compare it with what
    was asked for, view by view. Wrong proportions, a missing hole or a feature
    on the wrong face are easy to see and easy to miss in the numbers.
 4. **Change the script** with your normal file editing, then run it again.
@@ -40,7 +46,7 @@ command again. Do not rewrite the script or give up.
 
 ## Showing the user
 
-The user cannot see your pictures. Give them a 3D view:
+Give the user a 3D view as well as any rendered pictures you share:
 
 - **Live viewer**: `cadskill view` opens a page in their browser that follows
   the model as you rebuild it. Do this once, after the first successful build.

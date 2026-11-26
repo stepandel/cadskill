@@ -4,7 +4,7 @@ Each subcommand is one tool of the MCP server (server.py), asked of a
 background process that keeps the CAD kernel loaded (daemon.py). Answers are
 printed as text; pictures are written to a file and the path is printed, for
 the agent to open. `cadskill install` puts the skill that teaches all this
-into Claude's skills folder.
+into Claude's or Codex's skills folder.
 
 This module imports nothing heavy, so a command costs little more than the
 request it sends.
@@ -234,13 +234,15 @@ def _parser() -> argparse.ArgumentParser:
     s = add("view", "Open the live 3D viewer in the browser. It follows the model as it changes.", model=False)
     s.add_argument("--no-open", action="store_true", help="Only print the address.")
 
-    s = add("install", "Install the CadSkill skill for Claude.", model=False)
-    s.add_argument("--project", action="store_true", help="Into this project (.claude/skills) instead of your home folder.")
+    s = add("install", "Install the CadSkill skill for Claude or Codex.", model=False)
+    s.add_argument("--agent", choices=["claude", "codex"], default="claude", help="Agent to install for. Default: claude.")
+    s.add_argument("--project", action="store_true", help="Into this project (.claude/skills or .agents/skills) instead of your home folder.")
     s.add_argument("--allow", action="store_true",
                    help="Also let Claude run cadskill commands without asking each time (edits Claude's settings.json).")
     s.add_argument("--desktop", action="store_true",
                    help="Also register the MCP server with the Claude desktop app, so chat sessions get the tools.")
     s = add("uninstall", "Remove the CadSkill skill, and the desktop app's entry if there is one.", model=False)
+    s.add_argument("--agent", choices=["claude", "codex"], default="claude", help="Agent to remove the skill from. Default: claude.")
     s.add_argument("--project", action="store_true")
     add("status", "Say whether the background process is running.", model=False)
     add("stop", "Stop the background process.", model=False)
@@ -275,6 +277,14 @@ def _claude_home(project: bool) -> Path:
     if project:
         return Path.cwd() / ".claude"
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
+
+
+def _skill_target(project: bool, agent: str) -> Path:
+    if agent == "codex":
+        home = (Path.cwd() if project else Path.home()) / ".agents"
+    else:
+        home = _claude_home(project)
+    return home / "skills" / SKILL_NAME
 
 
 ALLOW_RULE = "Bash(cadskill:*)"
@@ -321,16 +331,18 @@ def _register_desktop() -> None:
           "Quit and reopen the app; the CadSkill tools then appear in chat sessions that use this computer.")
 
 
-def _install(project: bool, allow: bool, desktop: bool = False) -> int:
-    home = _claude_home(project)
-    target = home / "skills" / SKILL_NAME
+def _install(project: bool, allow: bool, desktop: bool = False, agent: str = "claude") -> int:
+    if agent == "codex" and (allow or desktop):
+        raise Failure("--allow and --desktop apply to Claude only. For Codex, use `cadskill install --agent codex` "
+                      "(optionally with --project). Codex manages its own command permissions.")
+    target = _skill_target(project, agent)
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(SKILL_SOURCE, target)
     print(f"Installed the skill: {target}")
 
     if allow:
-        settings = home / "settings.json"
+        settings = _claude_home(project) / "settings.json"
         try:
             data = json.loads(settings.read_text()) if settings.exists() else {}
         except ValueError:
@@ -341,30 +353,33 @@ def _install(project: bool, allow: bool, desktop: bool = False) -> int:
             rules.append(ALLOW_RULE)
             settings.write_text(json.dumps(data, indent=2) + "\n")
         print(f"Claude may now run cadskill commands without asking: {settings}")
-    else:
+    elif agent == "claude":
         print("Claude will ask before each cadskill command until you allow it. `cadskill install --allow` allows "
               "them all up front; note that building a model runs its script as Python.")
+    else:
+        print("Codex uses its existing command permissions; no permission settings were changed.")
 
     if desktop:
         _register_desktop()
 
     found = shutil.which("cadskill")
+    label = "Codex" if agent == "codex" else "Claude"
     if not found:
-        print("\nWarning: `cadskill` is not on your PATH, so Claude will not find it.\n"
+        print(f"\nWarning: `cadskill` is not on your PATH, so {label} will not find it.\n"
               f"Install it for good with\n  {INSTALL_LINE}\nthen open a new terminal.")
-    print("\nStart a new Claude session and ask for a part, e.g. \"model a 60 x 40 mm mounting plate with four M4 holes\".")
+    print(f"\nStart a new {label} session and ask for a part, e.g. \"model a 60 x 40 mm mounting plate with four M4 holes\".")
     print("The first build on this computer takes a minute or two while the CAD kernel loads.")
     return 0
 
 
-def _uninstall(project: bool) -> int:
-    target = _claude_home(project) / "skills" / SKILL_NAME
+def _uninstall(project: bool, agent: str = "claude") -> int:
+    target = _skill_target(project, agent)
     if target.exists():
         shutil.rmtree(target)
         print(f"Removed {target}")
     else:
         print(f"Nothing to remove at {target}")
-    if not project and _desktop_config().exists() and _edit_desktop(lambda servers: servers.pop(DESKTOP_NAME, None)):
+    if agent == "claude" and not project and _desktop_config().exists() and _edit_desktop(lambda servers: servers.pop(DESKTOP_NAME, None)):
         print(f"Removed the desktop app's entry: {_desktop_config()}")
     print(f"Your models are untouched in {root()}. To remove the command too: `uv tool uninstall cadskill`.")
     return 0
@@ -375,9 +390,9 @@ def _uninstall(project: bool) -> int:
 def _run_command(a: argparse.Namespace) -> int:
     c = a.command
     if c == "install":
-        return _install(a.project, a.allow, a.desktop)
+        return _install(a.project, a.allow, a.desktop, a.agent)
     if c == "uninstall":
-        return _uninstall(a.project)
+        return _uninstall(a.project, a.agent)
     if c == "mcp":
         from .server import main as serve
         serve()

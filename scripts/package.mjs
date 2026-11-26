@@ -14,6 +14,6 @@ if (!fs.existsSync(path.join(root, 'server/cadskill_mcp/static/viewer.html'))) {
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.rmSync(out, { force: true });
-execFileSync('zip', ['-r', '-q', out, '.claude-plugin', 'skills', 'server/pyproject.toml', 'server/uv.lock', 'server/cadskill_mcp',
+execFileSync('zip', ['-r', '-q', out, 'plugin.json', 'mcp.json', '.claude-plugin', 'skills', 'server/pyproject.toml', 'server/README.md', 'server/uv.lock', 'server/cadskill_mcp',
   '-x', '*/__pycache__/*', '*.pyc', '*.DS_Store'], { cwd: root, stdio: 'inherit' });
 console.log(`${path.relative(root, out)} ready: ${(fs.statSync(out).size / 1024).toFixed(0)} KB`);

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cadskill",
+  "version": "0.1.0",
+  "description": "Build, inspect and export solid CAD models with CadQuery scripts.",
+  "homepage": "https://github.com/stepandel/cad-modeling",
+  "repository": "https://github.com/stepandel/cad-modeling"
+}

@@ -75,6 +75,52 @@ def test_install_and_uninstall(tmp_path, monkeypatch, capsys):
     assert cli.main(["uninstall"]) == 0 and not skill.exists()
 
 
+@pytest.mark.parametrize("project", [False, True])
+def test_codex_install_and_uninstall(tmp_path, monkeypatch, capsys, project):
+    home, workspace = tmp_path / "home", tmp_path / "project"
+    home.mkdir()
+    workspace.mkdir()
+    monkeypatch.setattr(cli.Path, "home", lambda: home)
+    monkeypatch.chdir(workspace)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    scope = ["--project"] if project else []
+    base = workspace if project else home
+
+    # Keep an existing Claude skill and desktop registration while using Codex.
+    claude_skill = cli._skill_target(project, "claude") / "SKILL.md"
+    claude_skill.parent.mkdir(parents=True)
+    claude_skill.write_text("existing Claude skill")
+    desktop = cli._desktop_config()
+    desktop.parent.mkdir(parents=True, exist_ok=True)
+    desktop.write_text('{"mcpServers": {"cadskill": {"command": "existing"}}}')
+    before_desktop = desktop.read_text()
+
+    assert cli.main(["install", "--agent", "codex", *scope]) == 0
+    skill = base / ".agents" / "skills" / "cadskill" / "SKILL.md"
+    assert skill.read_text() == (cli.SKILL_SOURCE / "SKILL.md").read_text()
+    assert not ((home if project else workspace) / ".agents").exists()
+    assert not (base / ".agents" / "settings.json").exists()
+    assert "Start a new Codex session" in capsys.readouterr().out
+
+    # Reinstall replaces the old copy and removes obsolete skill resources.
+    (skill.parent / "obsolete.txt").write_text("old resource")
+    assert cli.main(["install", "--agent", "codex", *scope]) == 0
+    assert not (skill.parent / "obsolete.txt").exists()
+    assert cli.main(["uninstall", "--agent", "codex", *scope]) == 0
+    assert not skill.parent.exists()
+    assert claude_skill.read_text() == "existing Claude skill"
+    assert desktop.read_text() == before_desktop
+
+
+@pytest.mark.parametrize("option", ["--allow", "--desktop"])
+def test_codex_rejects_claude_options_before_writing(tmp_path, monkeypatch, capsys, option):
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["install", "--agent", "codex", "--project", option]) == 1
+    assert "apply to Claude only" in capsys.readouterr().err
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / ".claude").exists()
+
+
 def test_desktop_registration(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     config = cli._desktop_config()

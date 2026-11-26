@@ -1,12 +1,12 @@
 # CadSkill
 
-3D CAD for Claude. Claude builds real solid models by writing
+3D CAD for Claude and Codex. Your agent builds real solid models by writing
 [CadQuery](https://cadquery.readthedocs.io) scripts, checks them with
 measurements and rendered views, and exports STEP, STL and other files. A
 viewer page shows the person the same model as it changes.
 
 There are no modelling controls for the person to operate. You describe the
-part; Claude does the modelling.
+part; the agent does the modelling.
 
 ## Which model to use
 
@@ -52,7 +52,8 @@ curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install
 
 | Option | What it does |
 |---|---|
-| `--project` | Install the skill into `./.claude/skills` for the current project only |
+| `--agent codex` | Install for Codex instead of Claude Code |
+| `--project` | Install the skill for the current project only: `./.claude/skills` for Claude or `./.agents/skills` for Codex |
 | `--allow` | Add `Bash(cadskill:*)` to that folder's `settings.json`, so Claude does not ask before each command. Building a model runs its script as Python, so this lets Claude run Python without asking; leave it out to approve commands as they come |
 | `--desktop` | Also register the MCP server with the Claude desktop app (below) |
 
@@ -62,6 +63,50 @@ If you already use uv, the installer amounts to:
 uv tool install cadskill
 cadskill install            # with any of the options above
 ```
+
+### For Codex
+
+Install the command and skill on macOS or Linux:
+
+```sh
+curl -LsSf https://raw.githubusercontent.com/stepandel/cad-modeling/main/install.sh | sh -s -- --agent codex
+```
+
+If `cadskill` is already installed, run `cadskill install --agent codex`.
+This copies the same command-based modelling skill to
+`~/.agents/skills/cadskill`. Add `--project` to install into
+`./.agents/skills/cadskill` for the current project instead. These are
+[Codex's local skill locations](https://developers.openai.com/codex/skills#where-to-save-skills).
+Claude remains the default when `--agent` is omitted; you can install for
+both agents by running the command once for each.
+
+Start a new Codex session and ask for a part, or invoke the skill explicitly:
+
+```text
+$cadskill model a 60 x 40 mm mounting plate with four M4 holes
+```
+
+Codex writes scripts, runs `cadskill`, opens the rendered PNGs to check its
+work, and uses the browser viewer for interactive 3D. The first build has the
+same CAD kernel warm-up as Claude. Codex uses its existing command
+permissions; `--allow` and `--desktop` are Claude-only options.
+
+To use the MCP tools instead of the command-based skill, register the
+installed server with Codex:
+
+```sh
+codex mcp add cadskill -- "$(command -v cadskill-mcp)"
+```
+
+For this route, use the MCP skill in `skills/cadskill/` rather than installing
+the command-based skill too. Inline 3D depends on the host's MCP Apps
+support; `open_viewer` provides the browser viewer when needed.
+
+The repository also contains a portable Codex plugin (`plugin.json` and
+`mcp.json`) that bundles this MCP skill and launches the server with `uv`.
+Use [OpenAI's local plugin marketplace instructions](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually)
+to install it from a copy of this repository. `npm run package` includes
+both the portable and Claude manifests in `dist/cadskill-plugin.zip`.
 
 ### For Claude desktop chat
 
@@ -105,6 +150,7 @@ cadskill models      # lists saved models (none on a new install)
 | What | Where | Why |
 |---|---|---|
 | The skill | `~/.claude/skills/cadskill/SKILL.md` | Tells Claude how to model with `cadskill` and check its work |
+| The Codex skill (with `--agent codex`) | `~/.agents/skills/cadskill/SKILL.md` | The same modelling workflow for Codex |
 | The commands | `cadskill`, `cadskill-mcp`, in uv's tool folder (`~/.local/bin`) | Run the scripts and serve the tools; nothing of them lives in Claude's folder |
 | Your models | `~/Documents/CadSkill/` (or `$CADSKILL_HOME`) | Every version of every model, as plain files |
 
@@ -143,15 +189,16 @@ exist yet.
 
 ```sh
 cadskill uninstall          # removes the skill, and the desktop app's entry if there is one
+cadskill uninstall --agent codex  # removes the Codex skill, if installed
 uv tool uninstall cadskill
 ```
 
 Your models stay in `~/Documents/CadSkill/`; delete that folder too if you
 want them gone.
 
-## How Claude works with a model
+## How an agent works with a model
 
-The model is a CadQuery script in a file. Claude writes `bracket.py`, runs
+The model is a CadQuery script in a file. The agent writes `bracket.py`, runs
 `cadskill run bracket.py`, reads the sizes it prints and opens the four-view
 picture it writes to `.cadskill/bracket.png`, edits the file and runs it
 again. Each successful run is saved as a version. A script that fails changes
@@ -184,7 +231,7 @@ script.
 
 ## The plugin and MCP server
 
-The same tools are also an MCP server, packaged as a Claude plugin. Use this
+The same tools are also an MCP server, packaged for Claude and Codex. Use this
 where a host shows the viewer inline (MCP Apps), or for a client that speaks
 MCP but has no shell. Use one or the other, not both: the two skills have the
 same name and teach different ways to call the tools.
@@ -253,6 +300,8 @@ Not yet tried:
 
 - **A Claude session driving the installed skill** from a first request to a
   finished part.
+- **A Codex session driving the skill or plugin** from a first request to a
+  finished part, including any inline MCP Apps viewer.
 - **The HTML export as a published artifact.** It publishes; whether the
   viewer draws inside the artifact frame has not been looked at.
 - **Windows.** The background process is written for macOS and Linux.
@@ -322,6 +371,7 @@ Rebuild and commit it whenever `src/` changes.
 | `install.sh` | The one-line installer: uv if missing, then `uv tool install cadskill` and `cadskill install` |
 | `.github/workflows/release.yml` | Publishes the package to PyPI when a `v*` tag is pushed |
 | `.claude-plugin/plugin.json` | Plugin manifest; starts the server with `uv run` |
+| `plugin.json`, `mcp.json` | Portable Codex plugin manifest and stdio MCP server configuration |
 | `skills/cadskill/SKILL.md` | The plugin's skill (MCP tools) |
 | `server/pyproject.toml`, `server/README.md` | The `cadskill` package and its PyPI page |
 | `server/cadskill_mcp/skill/SKILL.md` | The skill `cadskill install` copies (`cadskill` commands) |
