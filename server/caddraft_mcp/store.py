@@ -17,11 +17,11 @@ import shutil
 import time
 from pathlib import Path
 
-DEFAULT_ROOT = Path.home() / "Documents" / "CAD Bench"
+DEFAULT_ROOT = Path.home() / "Documents" / "CadDraft"
 
 
 def root() -> Path:
-    return Path(os.environ.get("CADBENCH_HOME") or DEFAULT_ROOT).expanduser()
+    return Path(os.environ.get("CADDRAFT_HOME") or DEFAULT_ROOT).expanduser()
 
 
 def clean(model: str | None) -> str:

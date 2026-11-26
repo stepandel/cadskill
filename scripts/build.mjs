@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const out = path.join(root, 'server/cadbench_mcp/static/viewer.html');
+const out = path.join(root, 'server/caddraft_mcp/static/viewer.html');
 const TAG = '<script type="module" src="./ui/app.js"></script>';
 
 const bundle = await build({

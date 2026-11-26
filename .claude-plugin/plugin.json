@@ -1,15 +1,15 @@
 {
-  "name": "cad-bench",
+  "name": "caddraft",
   "version": "0.1.0",
   "description": "3D CAD for Claude. Claude builds real solid models by writing CadQuery scripts, checks them with measurements and rendered views, and exports STEP, STL and more.",
   "mcpServers": {
-    "cad-bench": {
+    "caddraft": {
       "command": "uv",
       "args": [
         "run",
         "--project",
         "${CLAUDE_PLUGIN_ROOT}/server",
-        "cadbench-mcp"
+        "caddraft-mcp"
       ],
       "env": {
         "UV_LINK_MODE": "hardlink"

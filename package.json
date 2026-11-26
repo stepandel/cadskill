@@ -2,7 +2,7 @@
   "name": "claude-3d-modeling-plugin",
   "version": "0.1.0",
   "private": true,
-  "description": "CAD Bench: a Claude plugin for 3D CAD. Claude builds models by writing CadQuery scripts through an MCP server; this package builds the viewer page.",
+  "description": "CadDraft: a Claude plugin for 3D CAD. Claude builds models by writing CadQuery scripts through an MCP server; this package builds the viewer page.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

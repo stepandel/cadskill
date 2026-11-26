@@ -7,13 +7,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const out = path.join(root, 'dist', 'cad-bench-plugin.zip');
-if (!fs.existsSync(path.join(root, 'server/cadbench_mcp/static/viewer.html'))) {
+const out = path.join(root, 'dist', 'caddraft-plugin.zip');
+if (!fs.existsSync(path.join(root, 'server/caddraft_mcp/static/viewer.html'))) {
   console.error('The viewer has not been built. Run "npm run build" first.');
   process.exit(1);
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.rmSync(out, { force: true });
-execFileSync('zip', ['-r', '-q', out, '.claude-plugin', 'skills', 'server/pyproject.toml', 'server/uv.lock', 'server/cadbench_mcp',
+execFileSync('zip', ['-r', '-q', out, '.claude-plugin', 'skills', 'server/pyproject.toml', 'server/uv.lock', 'server/caddraft_mcp',
   '-x', '*/__pycache__/*', '*.pyc', '*.DS_Store'], { cwd: root, stdio: 'inherit' });
 console.log(`${path.relative(root, out)} ready: ${(fs.statSync(out).size / 1024).toFixed(0)} KB`);

@@ -1,7 +1,8 @@
 // Where models come from. Inside a Claude conversation the page is an MCP App:
 // the host tells it which model version a tool just built, and it asks the
 // server for that version's meshes. Opened as a plain local page, it polls the
-// server instead. Either way the rest of the page just receives parts.
+// server instead. A page exported as one file has the model embedded and needs
+// no server. Either way the rest of the page just receives parts.
 import { App } from '@modelcontextprotocol/ext-apps';
 
 const POLL_MS = 1000;
@@ -44,8 +45,14 @@ export async function connect(handlers) {
     }
   };
 
+  // A page written by `export html` carries its model with it and talks to nobody.
+  if (window.CADDRAFT_MODEL) {
+    handlers.model(decode(window.CADDRAFT_MODEL));
+    return;
+  }
+
   if (window.parent !== window) {
-    const app = new App({ name: 'CAD Bench viewer', version: '0.1.0' });
+    const app = new App({ name: 'CadDraft viewer', version: '0.1.0' });
     const fetchMesh = async (model, version) => {
       const res = await app.callServerTool({ name: 'get_mesh', arguments: { model, version } });
       const text = res.content && res.content.find((c) => c.type === 'text');
@@ -77,7 +84,7 @@ export async function connect(handlers) {
       if (state.model) await show(state.model, state.version, fetchMesh);
       else handlers.status('No model yet. Ask Claude to build one.');
     } catch (e) {
-      handlers.status('The CAD Bench server is not running.', true);
+      handlers.status('The CadDraft server is not running.', true);
     }
     setTimeout(poll, POLL_MS);
   };
