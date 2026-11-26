@@ -357,6 +357,18 @@ async def get_mesh(model: str, version: int) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=json.dumps(data))])
 
 
+def _history(model: str) -> dict:
+    """A model's versions for the viewer's history panel, oldest first."""
+    model = clean(model)
+    return {"model": model, "versions": store.versions(model)}
+
+
+@mcp.tool(meta=APP_ONLY, structured_output=False)
+def get_history(model: str) -> CallToolResult:
+    """The saved versions of a model. Used by the viewer's history panel, not meant for the assistant."""
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps(_history(model)))])
+
+
 def _viewer_html() -> str:
     if VIEWER_FILE.exists():
         return VIEWER_FILE.read_text()
@@ -396,6 +408,8 @@ class _Page(BaseHTTPRequestHandler):
                         newest = max(models, key=lambda m: m["last"]["time"])
                         state = {"model": newest["model"], "version": newest["last"]["version"]}
                 self._send(200, "application/json", json.dumps(state).encode())
+            elif url.path == "/history":
+                self._send(200, "application/json", json.dumps(_history(parse_qs(url.query)["model"][0])).encode())
             elif url.path == "/mesh":
                 q = parse_qs(url.query)
                 self._send(200, "application/json", json.dumps(_mesh_for(q["model"][0], int(q["version"][0]))).encode())

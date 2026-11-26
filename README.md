@@ -37,7 +37,7 @@ line and the previous version stays current.
 | `list_versions`, `restore_version` | History and undo |
 | `list_models` | Models saved on this computer |
 | `open_viewer` | Address of the live viewer page |
-| `get_mesh` | Used by the viewer only; hidden from Claude by hosts that support MCP Apps |
+| `get_mesh`, `get_history` | Used by the viewer only; hidden from Claude by hosts that support MCP Apps |
 
 Models are plain files, one folder each, under `~/Documents/CAD Bench/`
 (set `CADBENCH_HOME` to move them): `current.py`, every version under
@@ -144,7 +144,9 @@ no perspective so lengths can be compared by eye.
 The viewer never sees a script. A build tool's result carries only the model
 name and version; the viewer then asks for that version's meshes through
 `get_mesh` (inline) or `/mesh` (local page), so triangle data stays out of
-Claude's context.
+Claude's context. The History button in the viewer lists every saved version
+(`get_history` or `/history`); picking one shows it without changing the
+model, which stays at its latest version until Claude restores another.
 
 ## History
 

@@ -27,34 +27,34 @@ function decode(data) {
   };
 }
 
-// handlers: model({ model, version, parts })   a version to display
-//           status(text, bad)                  something to tell the person
-//           theme('light' | 'dark')            the host's colour scheme
+// handlers: latest(model, version)              the server built (or restored) a version
+//           status(text, bad)                   something to tell the person
+//           theme('light' | 'dark')             the host's colour scheme
+// Returns { mesh(model, version), history(model) } for the page to load any version.
 export async function connect(handlers) {
-  let shown = '';
-  const show = async (model, version, fetchMesh) => {
+  let latest = '';
+  const follow = (model, version) => {
     const id = model + '@' + version;
-    if (!model || !version || id === shown) return;
-    shown = id;
-    try {
-      handlers.model(decode(await fetchMesh(model, version)));
-    } catch (e) {
-      shown = '';
-      handlers.status('Could not load the model: ' + (e && e.message ? e.message : e), true);
-    }
+    if (!model || !version || id === latest) return;
+    latest = id;
+    handlers.latest(model, version);
   };
 
   if (window.parent !== window) {
     const app = new App({ name: 'CAD Bench viewer', version: '0.1.0' });
-    const fetchMesh = async (model, version) => {
-      const res = await app.callServerTool({ name: 'get_mesh', arguments: { model, version } });
+    const call = async (name, args) => {
+      const res = await app.callServerTool({ name, arguments: args });
       const text = res.content && res.content.find((c) => c.type === 'text');
       if (res.isError || !text) throw new Error(text ? text.text : 'no data');
       return JSON.parse(text.text);
     };
+    const api = {
+      mesh: async (model, version) => decode(await call('get_mesh', { model, version })),
+      history: (model) => call('get_history', { model }),
+    };
     app.ontoolresult = (result) => {
       const built = result.structuredContent;
-      if (built && built.model) show(built.model, built.version, fetchMesh);
+      if (built && built.model) follow(built.model, built.version);
       else if (result.isError) handlers.status('That change failed; the model is unchanged.', true);
     };
     app.onhostcontextchanged = (ctx) => { if (ctx && ctx.theme) handlers.theme(ctx.theme); };
@@ -62,19 +62,23 @@ export async function connect(handlers) {
       await Promise.race([app.connect(), new Promise((_, no) => setTimeout(() => no(new Error('no host answered')), HOST_WAIT_MS))]);
       const ctx = app.getHostContext();
       if (ctx && ctx.theme) handlers.theme(ctx.theme);
-      return;
+      return api;
     } catch (e) { /* framed by something that is not an MCP host: fall through to polling */ }
   }
 
-  const fetchMesh = async (model, version) => {
-    const res = await fetch('./mesh?model=' + encodeURIComponent(model) + '&version=' + version);
+  const get = async (path) => {
+    const res = await fetch(path);
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   };
+  const api = {
+    mesh: async (model, version) => decode(await get('./mesh?model=' + encodeURIComponent(model) + '&version=' + version)),
+    history: (model) => get('./history?model=' + encodeURIComponent(model)),
+  };
   const poll = async () => {
     try {
-      const state = await (await fetch('./state')).json();
-      if (state.model) await show(state.model, state.version, fetchMesh);
+      const state = await get('./state');
+      if (state.model) follow(state.model, state.version);
       else handlers.status('No model yet. Ask Claude to build one.');
     } catch (e) {
       handlers.status('The CAD Bench server is not running.', true);
@@ -82,4 +86,5 @@ export async function connect(handlers) {
     setTimeout(poll, POLL_MS);
   };
   poll();
+  return api;
 }

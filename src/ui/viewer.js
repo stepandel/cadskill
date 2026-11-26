@@ -24,7 +24,6 @@ camera.add(key); key.position.set(-0.6, 0.9, 1);
 scene.add(camera);
 const model = new THREE.Group();
 scene.add(model);
-let showEdges = true;
 
 let queued = false;
 export function draw() { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; renderer.render(scene, camera); }); }
@@ -61,7 +60,6 @@ function makePart(d) {
   const base = d.color ? new THREE.Color().setRGB(d.color[0], d.color[1], d.color[2], THREE.SRGBColorSpace) : new THREE.Color(css('--model'));
   const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: base, metalness: 0.1, roughness: 0.62, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
   const lines = new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), new THREE.LineBasicMaterial({ color: css('--ink'), transparent: true, opacity: 0.55 }));
-  lines.visible = showEdges;
   mesh.add(lines);
   const p = { id: d.id, key: d.key, mesh, lines, base, box: g.boundingBox };
   mesh.userData.part = p;
@@ -98,12 +96,6 @@ export function select(p) {
   if (prev) paint(prev);
   if (p) paint(p);
   for (const fn of selectListeners) fn(p);
-  draw();
-}
-
-export function setEdges(on) {
-  showEdges = on;
-  for (const p of view.parts) p.lines.visible = on;
   draw();
 }
 

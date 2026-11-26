@@ -31,9 +31,10 @@ async def test_build_edit_undo(plate):
     async with connect(server.mcp._mcp_server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
         assert {"run_model", "edit_model", "get_model", "render", "inspect", "measure", "export", "import_file",
-                "list_versions", "restore_version", "list_models", "open_viewer", "get_mesh"} <= set(tools)
+                "list_versions", "restore_version", "list_models", "open_viewer", "get_mesh", "get_history"} <= set(tools)
         assert tools["run_model"].meta == {"ui": {"resourceUri": server.VIEWER_URI}}
         assert tools["get_mesh"].meta == {"ui": {"visibility": ["app"]}}     # hosts hide this one from the model
+        assert tools["get_history"].meta == {"ui": {"visibility": ["app"]}}
 
         built = await client.call_tool("run_model", {"code": plate, "note": "first"})
         assert not built.isError and "version 1" in text(built) and "volume 5376 mm³" in text(built)
@@ -93,7 +94,9 @@ async def test_check_and_export(two, tmp_path):
 @pytest.mark.anyio
 async def test_viewer_gets_meshes(two):
     async with connect(server.mcp._mcp_server) as client:
-        await client.call_tool("run_model", {"code": two})
+        await client.call_tool("run_model", {"code": two, "note": "first"})
+        history = json.loads(text(await client.call_tool("get_history", {"model": "default"})))
+        assert [(v["version"], v.get("note")) for v in history["versions"]] == [(1, "first")]
         mesh = json.loads(text(await client.call_tool("get_mesh", {"model": "default", "version": 1})))
         assert [p["name"] for p in mesh["parts"]] == ["plate", "post"] and mesh["parts"][0]["triangles"] > 0
 
@@ -104,4 +107,5 @@ async def test_viewer_gets_meshes(two):
         get = lambda path: urllib.request.urlopen(address + path, timeout=30).read()
         assert json.loads(get("state")) == {"model": "default", "version": 1}
         assert json.loads(get("mesh?model=default&version=1"))["parts"][1]["name"] == "post"
+        assert json.loads(get("history?model=default"))["versions"][0]["version"] == 1
         assert b"<" in get("")
