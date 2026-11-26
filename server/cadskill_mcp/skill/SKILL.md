@@ -1,25 +1,25 @@
 ---
-name: caddraft
-description: Design 3D parts and assemblies by writing CadQuery scripts and running them with the `caddraft` command (run, inspect, render, measure, export, view). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, wants to see a model in 3D, or wants to change or measure a model made earlier.
+name: cadskill
+description: Design 3D parts and assemblies by writing CadQuery scripts and running them with the `cadskill` command (run, inspect, render, measure, export, view). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, wants to see a model in 3D, or wants to change or measure a model made earlier.
 ---
 
-# Modelling with CadDraft
+# Modelling with CadSkill
 
 You build models by writing a CadQuery (Python) script to a file and running
-it with `caddraft`. The script is the model: every dimension and every step is
+it with `cadskill`. The script is the model: every dimension and every step is
 in it. You do not see the model unless you look, so check your work with the
-numbers `caddraft` prints and the pictures it writes.
+numbers `cadskill` prints and the pictures it writes.
 
-If `caddraft` is not found, tell the user to install it (see the CadDraft
-README: `uv tool install` the server, then `caddraft install`) and stop.
+If `cadskill` is not found, tell the user to install it (see the CadSkill
+README: `uv tool install` the server, then `cadskill install`) and stop.
 
 ## The loop
 
 1. **Write the whole script** to a file in the user's project, e.g.
    `bracket.py`. The file name is the model's name.
-2. **Build it**: `caddraft run bracket.py`. It prints each part's size, volume
+2. **Build it**: `cadskill run bracket.py`. It prints each part's size, volume
    and extents, and writes one picture with four views (iso, top, front,
-   right) to `.caddraft/bracket.png`.
+   right) to `.cadskill/bracket.png`.
 3. **Read the picture** with your file-reading tool and compare it with what
    was asked for, view by view. Wrong proportions, a missing hole or a feature
    on the wrong face are easy to see and easy to miss in the numbers.
@@ -33,7 +33,7 @@ nothing: it names the failing line, and `inspect`, `render`, `measure` and
 
 **First use on a computer is slow.** The first command starts the CAD kernel,
 which takes one to two minutes once per computer and a few seconds after
-that. `caddraft` waits for it. If it still answers that the kernel is
+that. `cadskill` waits for it. If it still answers that the kernel is
 starting, nothing is wrong: tell the user it is warming up and run the same
 command again. Do not rewrite the script or give up.
 
@@ -41,12 +41,12 @@ command again. Do not rewrite the script or give up.
 
 The user cannot see your pictures. Give them a 3D view:
 
-- **Live viewer**: `caddraft view` opens a page in their browser that follows
+- **Live viewer**: `cadskill view` opens a page in their browser that follows
   the model as you rebuild it. Do this once, after the first successful build.
   If you have your own browser or preview pane, you can open the address it
   prints there instead.
-- **As a page or artifact**: `caddraft export bracket html` writes
-  `.caddraft/bracket.html`, the same viewer with the model inside it: one
+- **As a page or artifact**: `cadskill export bracket html` writes
+  `.cadskill/bracket.html`, the same viewer with the model inside it: one
   file, no server. If you can publish artifacts, publish that file when the
   user wants to keep or share the model, or cannot open a local page. Export
   again and republish after the model changes.
@@ -85,22 +85,22 @@ show_object(plate, name="plate")
 ## Commands
 
 `MODEL` is the model's name or its script: `bracket` and `bracket.py` mean
-the same. Quote anything with `>`, `<`, `|`, `%` or `#` in it. `caddraft
+the same. Quote anything with `>`, `<`, `|`, `%` or `#` in it. `cadskill
 COMMAND --help` lists every option.
 
 | Command | What it does |
 |---|---|
-| `caddraft run SCRIPT [--note "why"] [--timeout 120]` | Build and save a version; write the four-view picture |
-| `caddraft render MODEL [--view top] [--direction 1,1,1]` | Another picture, to `.caddraft/MODEL-render.png` |
-| `caddraft render MODEL --section 0,-1,0` | Cut the model open (removes the side the normal points to) |
-| `caddraft render MODEL --highlight 'plate/faces:>Z'` | Draw what a selector matches in red |
-| `caddraft inspect MODEL [faces\|edges\|vertices] [--part P] [--selector '%CYLINDER']` | List geometry with position, type, size, normal |
-| `caddraft measure MODEL A B` | Shortest distance between two selections, and the angle if both are flat or straight |
-| `caddraft export MODEL step\|stl\|3mf\|glb\|brep\|svg\|html [--out FILE]` | Write a file and print its path |
-| `caddraft import MODEL FILE` | Copy a STEP or BREP file in, for the script to load with `asset("name.step")` |
-| `caddraft show MODEL`, `versions MODEL`, `models` | The saved script, its history, all models |
-| `caddraft restore MODEL N --to SCRIPT` | Go back to version N and write that script back to the file |
-| `caddraft view` | Open the live 3D viewer |
+| `cadskill run SCRIPT [--note "why"] [--timeout 120]` | Build and save a version; write the four-view picture |
+| `cadskill render MODEL [--view top] [--direction 1,1,1]` | Another picture, to `.cadskill/MODEL-render.png` |
+| `cadskill render MODEL --section 0,-1,0` | Cut the model open (removes the side the normal points to) |
+| `cadskill render MODEL --highlight 'plate/faces:>Z'` | Draw what a selector matches in red |
+| `cadskill inspect MODEL [faces\|edges\|vertices] [--part P] [--selector '%CYLINDER']` | List geometry with position, type, size, normal |
+| `cadskill measure MODEL A B` | Shortest distance between two selections, and the angle if both are flat or straight |
+| `cadskill export MODEL step\|stl\|3mf\|glb\|brep\|svg\|html [--out FILE]` | Write a file and print its path |
+| `cadskill import MODEL FILE` | Copy a STEP or BREP file in, for the script to load with `asset("name.step")` |
+| `cadskill show MODEL`, `versions MODEL`, `models` | The saved script, its history, all models |
+| `cadskill restore MODEL N --to SCRIPT` | Go back to version N and write that script back to the file |
+| `cadskill view` | Open the live 3D viewer |
 
 A **selection** (for `--highlight` and `measure`) is `PART`, `KIND` or
 `PART/KIND`, optionally followed by `:SELECTOR` or `@ROWS` (row numbers from
@@ -112,9 +112,9 @@ A **selection** (for `--highlight` and `measure`) is `PART`, `KIND` or
 Most mistakes are a selector that matches something other than what you
 meant. Do not guess:
 
-- `caddraft inspect MODEL faces` lists a part's faces with position, type,
+- `cadskill inspect MODEL faces` lists a part's faces with position, type,
   normal and size. Add `--selector` to see exactly what it matches.
-- `caddraft render MODEL --highlight ...` draws the match in red.
+- `cadskill render MODEL --highlight ...` draws the match in red.
 
 Common selectors: `>Z` / `<Z` furthest along an axis; `|Z` parallel to an
 axis; `#Z` perpendicular to it; `%CYLINDER`, `%PLANE`, `%CIRCLE` by type;
@@ -144,8 +144,8 @@ row numbers from an earlier version.
   face or edge. Overlap them by a small amount.
 - **"Stopped after N seconds"**: an endless loop or a very heavy operation
   (large patterns of booleans). Simplify, or raise `--timeout`.
-- If the script went wrong in a way that is hard to repair, `caddraft
-  versions MODEL` and `caddraft restore MODEL N --to SCRIPT` go back to one
+- If the script went wrong in a way that is hard to repair, `cadskill
+  versions MODEL` and `cadskill restore MODEL N --to SCRIPT` go back to one
   that was right.
 
 ## Working with the user
@@ -154,8 +154,8 @@ row numbers from an earlier version.
 - When you export, tell the user where the file is.
 - Use a separate script (and so a separate model name) for each unrelated
   design, so their version histories do not mix.
-- `.caddraft/` holds pictures and exported pages for this project and is kept
-  out of git. Saved versions live in the user's `Documents/CadDraft` folder.
+- `.cadskill/` holds pictures and exported pages for this project and is kept
+  out of git. Saved versions live in the user's `Documents/CadSkill` folder.
 - The script runs as ordinary Python on the user's computer. Only use it for
   modelling; do not read or write files outside the model, and do not use
   the network.

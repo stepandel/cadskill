@@ -17,11 +17,19 @@ import shutil
 import time
 from pathlib import Path
 
-DEFAULT_ROOT = Path.home() / "Documents" / "CadDraft"
+DEFAULT_ROOT = Path.home() / "Documents" / "CadSkill"
+LEGACY_ROOT = Path.home() / "Documents" / "CadDraft"      # the folder's name before the project was CadSkill
 
 
 def root() -> Path:
-    return Path(os.environ.get("CADDRAFT_HOME") or DEFAULT_ROOT).expanduser()
+    if os.environ.get("CADSKILL_HOME"):
+        return Path(os.environ["CADSKILL_HOME"]).expanduser()
+    if not DEFAULT_ROOT.exists() and LEGACY_ROOT.is_dir():
+        try:
+            LEGACY_ROOT.rename(DEFAULT_ROOT)       # carry models made under the old name over, once
+        except OSError:
+            return LEGACY_ROOT
+    return DEFAULT_ROOT
 
 
 def clean(model: str | None) -> str:

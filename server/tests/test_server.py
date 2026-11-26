@@ -5,8 +5,8 @@ import urllib.request
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 
-from caddraft_mcp import server
-from caddraft_mcp.store import Store
+from cadskill_mcp import server
+from cadskill_mcp.store import Store
 
 
 @pytest.fixture

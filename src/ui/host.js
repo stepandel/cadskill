@@ -44,14 +44,14 @@ export async function connect(handlers) {
 
   // A page written by `export html` carries its model with it and talks to nobody.
   // There is no history to read, so history is null.
-  if (window.CADDRAFT_MODEL) {
-    const data = decode(window.CADDRAFT_MODEL);
+  if (window.CADSKILL_MODEL) {
+    const data = decode(window.CADSKILL_MODEL);
     follow(data.model, data.version);
     return { mesh: async () => data, history: null };
   }
 
   if (window.parent !== window) {
-    const app = new App({ name: 'CadDraft viewer', version: '0.1.0' });
+    const app = new App({ name: 'CadSkill viewer', version: '0.1.0' });
     const call = async (name, args) => {
       const res = await app.callServerTool({ name, arguments: args });
       const text = res.content && res.content.find((c) => c.type === 'text');
@@ -91,7 +91,7 @@ export async function connect(handlers) {
       if (state.model) follow(state.model, state.version);
       else handlers.status('No model yet. Ask Claude to build one.');
     } catch (e) {
-      handlers.status('The CadDraft server is not running.', true);
+      handlers.status('The CadSkill server is not running.', true);
     }
     setTimeout(poll, POLL_MS);
   };

@@ -1,11 +1,11 @@
-"""The `caddraft` command: its arguments, the daemon's tool calls, the page export and the skill install."""
+"""The `cadskill` command: its arguments, the daemon's tool calls, the page export and the skill install."""
 import argparse
 import json
 
 import pytest
 
-from caddraft_mcp import cli, daemon, server
-from caddraft_mcp.store import Store
+from cadskill_mcp import cli, daemon, server
+from cadskill_mcp.store import Store
 
 
 @pytest.fixture(autouse=True)
@@ -55,22 +55,22 @@ def test_export_page_holds_the_model(plate, tmp_path):
     reply = daemon._call("export", {"model": "plate", "format": "html", "path": str(out)})
     assert not reply["error"], reply["text"]
     page = out.read_text()
-    start = page.index("window.CADDRAFT_MODEL = ") + len("window.CADDRAFT_MODEL = ")
+    start = page.index("window.CADSKILL_MODEL = ") + len("window.CADSKILL_MODEL = ")
     data = json.loads(page[start:page.index(";</script>", start)].replace("<\\/", "</"))
     assert data["model"] == "plate" and data["version"] == 1 and data["parts"][0]["name"] == "plate"
-    assert page.index("window.CADDRAFT_MODEL") < page.index(server.MODULE_TAG)       # set before the viewer starts
+    assert page.index("window.CADSKILL_MODEL") < page.index(server.MODULE_TAG)       # set before the viewer starts
 
 
 def test_install_and_uninstall(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     settings = tmp_path / "claude" / "settings.json"
     assert cli.main(["install"]) == 0
-    skill = tmp_path / "claude" / "skills" / "caddraft" / "SKILL.md"
-    assert skill.read_text().startswith("---\nname: caddraft\n") and not settings.exists()
+    skill = tmp_path / "claude" / "skills" / "cadskill" / "SKILL.md"
+    assert skill.read_text().startswith("---\nname: cadskill\n") and not settings.exists()
 
     settings.write_text('{"permissions": {"allow": ["Bash(ls:*)"]}, "model": "x"}')
     assert cli.main(["install", "--allow"]) == 0 and cli.main(["install", "--allow"]) == 0
-    assert json.loads(settings.read_text()) == {"permissions": {"allow": ["Bash(ls:*)", "Bash(caddraft:*)"]}, "model": "x"}
+    assert json.loads(settings.read_text()) == {"permissions": {"allow": ["Bash(ls:*)", "Bash(cadskill:*)"]}, "model": "x"}
 
     assert cli.main(["uninstall"]) == 0 and not skill.exists()
 
@@ -78,18 +78,31 @@ def test_install_and_uninstall(tmp_path, monkeypatch, capsys):
 def test_desktop_registration(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
     config = cli._desktop_config()
-    program = tmp_path / "bin" / "caddraft-mcp"
+    program = tmp_path / "bin" / "cadskill-mcp"
     program.parent.mkdir()
     program.write_text("")
-    monkeypatch.setattr(cli.shutil, "which", lambda name: str(program) if name == "caddraft-mcp" else None)
+    monkeypatch.setattr(cli.shutil, "which", lambda name: str(program) if name == "cadskill-mcp" else None)
     config.parent.mkdir()
     config.write_text('{"mcpServers": {"other": {"command": "x"}}, "preferences": {"a": 1}}')
 
     assert cli.main(["install", "--desktop"]) == 0
     assert json.loads(config.read_text()) == {
-        "mcpServers": {"other": {"command": "x"}, "caddraft": {"command": str(program), "args": []}},
+        "mcpServers": {"other": {"command": "x"}, "cadskill": {"command": str(program), "args": []}},
         "preferences": {"a": 1}}
-    assert json.loads(config.with_suffix(".json.before-caddraft").read_text())["mcpServers"] == {"other": {"command": "x"}}
+    assert json.loads(config.with_suffix(".json.before-cadskill").read_text())["mcpServers"] == {"other": {"command": "x"}}
 
     assert cli.main(["uninstall"]) == 0
     assert json.loads(config.read_text())["mcpServers"] == {"other": {"command": "x"}}
+
+
+def test_models_move_from_the_old_folder(tmp_path, monkeypatch):
+    from cadskill_mcp import store
+    old, new = tmp_path / "CadDraft", tmp_path / "CadSkill"
+    (old / "plate").mkdir(parents=True)
+    (old / "plate" / "current.py").write_text("x")
+    monkeypatch.delenv("CADSKILL_HOME", raising=False)
+    monkeypatch.setattr(store, "LEGACY_ROOT", old)
+    monkeypatch.setattr(store, "DEFAULT_ROOT", new)
+    assert store.root() == new and (new / "plate" / "current.py").read_text() == "x" and not old.exists()
+    old.mkdir()                                    # once the new folder exists, an old one is left alone
+    assert store.root() == new and old.exists()

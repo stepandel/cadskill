@@ -1,9 +1,9 @@
-"""The `caddraft` command: CadDraft for any agent that can run a shell command.
+"""The `cadskill` command: CadSkill for any agent that can run a shell command.
 
 Each subcommand is one tool of the MCP server (server.py), asked of a
 background process that keeps the CAD kernel loaded (daemon.py). Answers are
 printed as text; pictures are written to a file and the path is printed, for
-the agent to open. `caddraft install` puts the skill that teaches all this
+the agent to open. `cadskill install` puts the skill that teaches all this
 into Claude's skills folder.
 
 This module imports nothing heavy, so a command costs little more than the
@@ -27,10 +27,10 @@ from pathlib import Path
 
 from .store import clean, root
 
-VERSION = _installed("caddraft-mcp")
-SKILL_NAME = "caddraft"
+VERSION = _installed("cadskill-mcp")
+SKILL_NAME = "cadskill"
 SKILL_SOURCE = Path(__file__).parent / "skill"
-WORK_DIR = ".caddraft"            # in the current folder: pictures and pages for the agent to open
+WORK_DIR = ".cadskill"            # in the current folder: pictures and pages for the agent to open
 START_WAIT = 100                  # how long one command waits for a kernel that is still starting
 VIEWS = ["four", "iso", "front", "back", "left", "right", "top", "bottom"]
 FORMATS = ["step", "stl", "3mf", "brep", "glb", "svg", "html"]
@@ -81,7 +81,7 @@ def _daemon(start: bool = True) -> dict | None:
     base = root()
     base.mkdir(parents=True, exist_ok=True)
     with open(base / ".daemon.log", "ab") as log:
-        subprocess.Popen([sys.executable, "-m", "caddraft_mcp.daemon"], cwd=base, stdin=subprocess.DEVNULL,
+        subprocess.Popen([sys.executable, "-m", "cadskill_mcp.daemon"], cwd=base, stdin=subprocess.DEVNULL,
                          stdout=log, stderr=log, start_new_session=True)
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
@@ -89,7 +89,7 @@ def _daemon(start: bool = True) -> dict | None:
         state = _state()
         if _alive(state):
             return state
-    raise Failure(f"The CadDraft background process did not start. See {base / '.daemon.log'}.")
+    raise Failure(f"The CadSkill background process did not start. See {base / '.daemon.log'}.")
 
 
 def _stop(state: dict) -> None:
@@ -112,7 +112,7 @@ def call(tool: str, args: dict, timeout: float = 60) -> dict:
         try:
             reply = _post(state, tool, args, timeout + 60)
         except (OSError, ValueError) as exc:
-            raise Failure(f"The CadDraft background process stopped answering ({exc}). Run the command again.") from None
+            raise Failure(f"The CadSkill background process stopped answering ({exc}). Run the command again.") from None
         if not reply.get("starting") or time.monotonic() - began > START_WAIT:
             return reply
         if not told:
@@ -175,8 +175,8 @@ def _selection(value: str) -> dict:
 
 
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="caddraft", description="Build, check and export CAD models from CadQuery scripts.")
-    p.add_argument("--version", action="version", version=f"caddraft {VERSION}")
+    p = argparse.ArgumentParser(prog="cadskill", description="Build, check and export CAD models from CadQuery scripts.")
+    p.add_argument("--version", action="version", version=f"cadskill {VERSION}")
     sub = p.add_subparsers(dest="command", required=True, metavar="command")
     selection = "PART, KIND or PART/KIND, then :SELECTOR or @ROWS. E.g. 'lid/faces:>Z', 'edges@3,4', 'post'."
 
@@ -233,13 +233,13 @@ def _parser() -> argparse.ArgumentParser:
     s = add("view", "Open the live 3D viewer in the browser. It follows the model as it changes.", model=False)
     s.add_argument("--no-open", action="store_true", help="Only print the address.")
 
-    s = add("install", "Install the CadDraft skill for Claude.", model=False)
+    s = add("install", "Install the CadSkill skill for Claude.", model=False)
     s.add_argument("--project", action="store_true", help="Into this project (.claude/skills) instead of your home folder.")
     s.add_argument("--allow", action="store_true",
-                   help="Also let Claude run caddraft commands without asking each time (edits Claude's settings.json).")
+                   help="Also let Claude run cadskill commands without asking each time (edits Claude's settings.json).")
     s.add_argument("--desktop", action="store_true",
                    help="Also register the MCP server with the Claude desktop app, so chat sessions get the tools.")
-    s = add("uninstall", "Remove the CadDraft skill, and the desktop app's entry if there is one.", model=False)
+    s = add("uninstall", "Remove the CadSkill skill, and the desktop app's entry if there is one.", model=False)
     s.add_argument("--project", action="store_true")
     add("status", "Say whether the background process is running.", model=False)
     add("stop", "Stop the background process.", model=False)
@@ -250,7 +250,7 @@ def _parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------- output
 
 def _work_file(name: str) -> Path:
-    """A file in ./.caddraft, which is kept out of git."""
+    """A file in ./.cadskill, which is kept out of git."""
     folder = Path(WORK_DIR)
     if not folder.exists():
         folder.mkdir()
@@ -276,8 +276,8 @@ def _claude_home(project: bool) -> Path:
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser()
 
 
-ALLOW_RULE = "Bash(caddraft:*)"
-DESKTOP_NAME = "caddraft"         # the MCP server's name in the desktop app's settings
+ALLOW_RULE = "Bash(cadskill:*)"
+DESKTOP_NAME = "cadskill"         # the MCP server's name in the desktop app's settings
 
 
 def _desktop_config() -> Path:
@@ -304,19 +304,19 @@ def _edit_desktop(change) -> bool:
         return False
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
-        shutil.copy2(path, path.with_suffix(".json.before-caddraft"))
+        shutil.copy2(path, path.with_suffix(".json.before-cadskill"))
     path.write_text(json.dumps(data, indent=2) + "\n")
     return True
 
 
 def _register_desktop() -> None:
     # The desktop app does not start servers with your shell's PATH, so it needs the full path.
-    server = shutil.which("caddraft-mcp") or str(Path(sys.argv[0]).resolve().with_name("caddraft-mcp"))
+    server = shutil.which("cadskill-mcp") or str(Path(sys.argv[0]).resolve().with_name("cadskill-mcp"))
     if not Path(server).exists():
-        raise Failure("Could not find the caddraft-mcp program to register. Install with `uv tool install` first.")
+        raise Failure("Could not find the cadskill-mcp program to register. Install with `uv tool install` first.")
     _edit_desktop(lambda servers: servers.update({DESKTOP_NAME: {"command": server, "args": []}}))
     print(f"Registered with the Claude desktop app: {_desktop_config()}\n"
-          "Quit and reopen the app; the CadDraft tools then appear in chat sessions that use this computer.")
+          "Quit and reopen the app; the CadSkill tools then appear in chat sessions that use this computer.")
 
 
 def _install(project: bool, allow: bool, desktop: bool = False) -> int:
@@ -338,17 +338,17 @@ def _install(project: bool, allow: bool, desktop: bool = False) -> int:
         if ALLOW_RULE not in rules:
             rules.append(ALLOW_RULE)
             settings.write_text(json.dumps(data, indent=2) + "\n")
-        print(f"Claude may now run caddraft commands without asking: {settings}")
+        print(f"Claude may now run cadskill commands without asking: {settings}")
     else:
-        print("Claude will ask before each caddraft command until you allow it. `caddraft install --allow` allows "
+        print("Claude will ask before each cadskill command until you allow it. `cadskill install --allow` allows "
               "them all up front; note that building a model runs its script as Python.")
 
     if desktop:
         _register_desktop()
 
-    found = shutil.which("caddraft")
+    found = shutil.which("cadskill")
     if not found:
-        print("\nWarning: `caddraft` is not on your PATH, so Claude will not find it.\n"
+        print("\nWarning: `cadskill` is not on your PATH, so Claude will not find it.\n"
               "Install it for good with `uv tool install <path to this repo>/server`, then run `uv tool update-shell` "
               "if uv says its tool folder is not on your PATH.")
     print("\nStart a new Claude session and ask for a part, e.g. \"model a 60 x 40 mm mounting plate with four M4 holes\".")
@@ -365,7 +365,7 @@ def _uninstall(project: bool) -> int:
         print(f"Nothing to remove at {target}")
     if not project and _desktop_config().exists() and _edit_desktop(lambda servers: servers.pop(DESKTOP_NAME, None)):
         print(f"Removed the desktop app's entry: {_desktop_config()}")
-    print(f"Your models are untouched in {root()}. To remove the command too: `uv tool uninstall caddraft-mcp`.")
+    print(f"Your models are untouched in {root()}. To remove the command too: `uv tool uninstall cadskill-mcp`.")
     return 0
 
 

@@ -1,7 +1,7 @@
-"""The background process behind the `caddraft` command.
+"""The background process behind the `cadskill` command.
 
 Loading CadQuery takes seconds (a minute or two the first time on a computer),
-far too long to pay on every command. So the first `caddraft` command starts
+far too long to pay on every command. So the first `cadskill` command starts
 this process, which keeps the kernel loaded, and every command after that is a
 short request to it. It also serves the live viewer page. It stops by itself
 after an hour without commands.
@@ -33,7 +33,7 @@ from .store import root
 IDLE_SECONDS = 3600
 STATE_NAME = ".daemon.json"
 LOCK_NAME = ".daemon.lock"
-VERSION = _installed("caddraft-mcp")
+VERSION = _installed("cadskill-mcp")
 
 _token = secrets.token_urlsafe(32)
 _last = time.monotonic()

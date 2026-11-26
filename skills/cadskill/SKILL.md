@@ -1,9 +1,9 @@
 ---
-name: caddraft
-description: Design 3D parts and assemblies with the CadDraft tools (run_model, edit_model, inspect, render, measure, export). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, or wants to change or measure a model made earlier.
+name: cadskill
+description: Design 3D parts and assemblies with the CadSkill tools (run_model, edit_model, inspect, render, measure, export). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, or wants to change or measure a model made earlier.
 ---
 
-# Modelling with CadDraft
+# Modelling with CadSkill
 
 You build models by writing a CadQuery (Python) script. The script is the
 model: every dimension and every step is in it, and each successful run is

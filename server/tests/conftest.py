@@ -1,6 +1,6 @@
 import pytest
 
-from caddraft_mcp.runner import Runner
+from cadskill_mcp.runner import Runner
 
 
 @pytest.fixture(scope="session")

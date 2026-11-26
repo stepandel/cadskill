@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from caddraft_mcp.runner import Problem, Runner, Starting
+from cadskill_mcp.runner import Problem, Runner, Starting
 
 
 def run(runner, code, tmp_path, **kw):

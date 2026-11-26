@@ -2,13 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "caddraft",
+      "name": "cadskill",
       "runtimeExecutable": "uv",
       "runtimeArgs": [
         "run",
         "--project",
         "server",
-        "caddraft-mcp",
+        "cadskill-mcp",
         "--page"
       ],
       "port": 8791

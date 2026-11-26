@@ -1,4 +1,4 @@
-"""CadDraft MCP server: the tools Claude uses to build and check a CAD model.
+"""CadSkill MCP server: the tools Claude uses to build and check a CAD model.
 
 The model is a CadQuery script. Claude sends or edits the script; the server
 runs it in a worker process, keeps every successful run as a version, and
@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from .runner import DEFAULT_TIMEOUT, Problem, Runner, Starting
 from .store import Store, clean
 
-VIEWER_URI = "ui://caddraft/viewer.html"
+VIEWER_URI = "ui://cadskill/viewer.html"
 VIEWER_FILE = Path(__file__).parent / "static" / "viewer.html"
 VIEWER_PORT = 8791
 SHOWS_VIEWER = {"ui": {"resourceUri": VIEWER_URI}}
@@ -33,7 +33,7 @@ APP_ONLY = {"ui": {"visibility": ["app"]}}
 MODULE_TAG = '<script type="module">'         # where the built viewer's code starts
 
 INSTRUCTIONS = """\
-CadDraft builds 3D CAD models from CadQuery (Python) scripts. The script is the model.
+CadSkill builds 3D CAD models from CadQuery (Python) scripts. The script is the model.
 
 Loop: run_model with a full script -> read the numbers and look at the four views -> fix with
 edit_model (exact text replacement) -> repeat. Use inspect to list faces or edges before writing a
@@ -47,7 +47,7 @@ If a tool answers that the CAD kernel is still starting, that is normal on first
 minutes, once per computer). Tell the user it is warming up, wait about 20 seconds, and repeat the call.
 """
 
-mcp = FastMCP("caddraft", instructions=INSTRUCTIONS)
+mcp = FastMCP("cadskill", instructions=INSTRUCTIONS)
 store = Store()
 runner = Runner(start_wait=25)   # a call made while the kernel is still starting answers within 25 s
 _shown = {"model": None, "version": 0}       # what the viewer should be displaying
@@ -383,7 +383,7 @@ def get_history(model: str) -> CallToolResult:
 def _viewer_html() -> str:
     if VIEWER_FILE.exists():
         return VIEWER_FILE.read_text()
-    return "<!doctype html><title>CadDraft</title><p>The viewer has not been built. Run <code>npm run build</code>.</p>"
+    return "<!doctype html><title>CadSkill</title><p>The viewer has not been built. Run <code>npm run build</code>.</p>"
 
 
 def standalone_page(model: str, version: int) -> str:
@@ -392,10 +392,10 @@ def standalone_page(model: str, version: int) -> str:
     if MODULE_TAG not in html:
         raise Problem("The viewer has not been built. Run `npm run build`.")
     data = json.dumps(_mesh_for(model, version)).replace("</", "<\\/")      # must not end the script element early
-    return html.replace(MODULE_TAG, f"<script>window.CADDRAFT_MODEL = {data};</script>\n{MODULE_TAG}", 1)
+    return html.replace(MODULE_TAG, f"<script>window.CADSKILL_MODEL = {data};</script>\n{MODULE_TAG}", 1)
 
 
-@mcp.resource(VIEWER_URI, name="CadDraft viewer", mime_type="text/html;profile=mcp-app")
+@mcp.resource(VIEWER_URI, name="CadSkill viewer", mime_type="text/html;profile=mcp-app")
 def viewer() -> str:
     """The 3D viewer shown beside run_model, edit_model and restore_version."""
     return _viewer_html()
@@ -476,7 +476,7 @@ def main() -> None:
 
     runner.warm()        # start loading CadQuery now, so it is ready (or nearly) by the first tool call
     if "--page" in sys.argv:
-        print(f"CadDraft viewer at {start_viewer_page()}", file=sys.stderr)
+        print(f"CadSkill viewer at {start_viewer_page()}", file=sys.stderr)
         threading.Event().wait()
     mcp.run()
 
