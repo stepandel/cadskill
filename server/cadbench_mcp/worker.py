@@ -174,6 +174,13 @@ def _vec(v) -> list[float]:
 
 
 def _summary(part: dict) -> dict:
+    """Size, topology and mass properties. Kept on the part: on big imports this takes seconds."""
+    if "summary" not in part:
+        part["summary"] = _measure_part(part)
+    return part["summary"]
+
+
+def _measure_part(part: dict) -> dict:
     shape = part["shape"]
     bb = shape.BoundingBox()
     info = {
@@ -335,13 +342,53 @@ def op_measure(code: str, model_dir: str, a: dict, b: dict) -> dict:
 
 # ---------------------------------------------------------------- meshes for the viewer
 
+def _triangulate(shape, tolerance):
+    """Mesh the shape and read the triangulation into numpy arrays.
+
+    Does what cq.Shape.tessellate does, but much faster on big parts: OCCT meshes
+    the faces in parallel, and triangles are read with Triangle(i) rather than by
+    iterating Triangles(), which in OCP costs ~60 µs per triangle (9 s for a
+    150k-triangle STEP import).
+    """
+    import numpy as np
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopLoc import TopLoc_Location
+    from OCP.TopoDS import TopoDS
+
+    BRepMesh_IncrementalMesh(shape.wrapped, tolerance, False, MESH_ANGLE, True)
+    verts, tris, offset = [], [], 0
+    explorer = TopExp_Explorer(shape.wrapped, TopAbs_FACE)
+    while explorer.More():
+        face = TopoDS.Face_s(explorer.Current())
+        explorer.Next()
+        loc = TopLoc_Location()
+        poly = BRep_Tool.Triangulation_s(face, loc)
+        if poly is None:
+            continue
+        v = np.array([poly.Node(i).Coord() for i in range(1, poly.NbNodes() + 1)], dtype=np.float64)
+        t = np.array([poly.Triangle(i).Get() for i in range(1, poly.NbTriangles() + 1)], dtype=np.int64) - 1
+        if not loc.IsIdentity():
+            trsf = loc.Transformation()
+            m = np.array([[trsf.Value(r, c) for c in range(1, 5)] for r in range(1, 4)])
+            v = v @ m[:, :3].T + m[:, 3]
+        if face.Orientation() == TopAbs_REVERSED:
+            t = t[:, [0, 2, 1]]
+        verts.append(v)
+        tris.append(t + offset)
+        offset += len(v)
+    if not verts:
+        return np.zeros((0, 3)), np.zeros((0, 3), dtype=np.uint32)
+    return np.concatenate(verts), np.concatenate(tris).astype(np.uint32)
+
+
 def _mesh(shape, tolerance=MESH_TOLERANCE):
     """Triangles with per-vertex normals. Vertices are not shared between faces, so creases stay sharp."""
     import numpy as np
 
-    verts, tris = shape.tessellate(tolerance, MESH_ANGLE)
-    v = np.array([(p.x, p.y, p.z) for p in verts], dtype=np.float64).reshape(-1, 3)
-    t = np.array(tris, dtype=np.uint32).reshape(-1, 3)
+    v, t = _triangulate(shape, tolerance)
     n = np.zeros_like(v)
     if len(t):
         face_n = np.cross(v[t[:, 1]] - v[t[:, 0]], v[t[:, 2]] - v[t[:, 0]])
@@ -384,6 +431,7 @@ HIGHLIGHT = (0.92, 0.26, 0.21)
 
 
 def _polydata(shape, tolerance):
+    import numpy as np
     import vtk
     from vtk.util import numpy_support
 
@@ -393,8 +441,9 @@ def _polydata(shape, tolerance):
     pts.SetData(numpy_support.numpy_to_vtk(v, deep=True))
     pd.SetPoints(pts)
     cells = vtk.vtkCellArray()
-    for a, b, c in t.tolist():
-        cells.InsertNextCell(3, (a, b, c))
+    offsets = numpy_support.numpy_to_vtkIdTypeArray(np.arange(0, 3 * len(t) + 1, 3, dtype=np.int64), deep=True)
+    conn = numpy_support.numpy_to_vtkIdTypeArray(t.astype(np.int64).ravel(), deep=True)
+    cells.SetData(offsets, conn)
     pd.SetPolys(cells)
     pd.GetPointData().SetNormals(numpy_support.numpy_to_vtk(n, deep=True))
     return pd
