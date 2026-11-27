@@ -1,6 +1,6 @@
 ---
 name: cadskill
-description: Design 3D parts and assemblies by writing CadQuery scripts and running them with the `cadskill` command (run, inspect, render, measure, export, view). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, wants to see a model in 3D, or wants to change or measure a model made earlier.
+description: Design 3D parts and assemblies with CadQuery and the `cadskill` command. Use to build, change, measure, export or view physical parts and assemblies, produce STEP/STL/3MF files, show an existing model in 3D, or browse its version history.
 ---
 
 # Modelling with CadSkill
@@ -38,6 +38,11 @@ Every successful run is saved as a numbered version. A failed run changes
 nothing: it names the failing line, and `inspect`, `render`, `measure` and
 `export` keep answering about the last version that built.
 
+Keep the same script and model name for revisions of the same design. Use
+`--note` to describe each change, rather than creating `_v2` / `_v3` model
+names that split the history. If the script is renamed, pass `--model` with
+the original model name to keep its history together.
+
 **First use on a computer is slow.** The first command starts the CAD kernel,
 which takes one to two minutes once per computer and a few seconds after
 that. `cadskill` waits for it. If it still answers that the kernel is
@@ -46,30 +51,32 @@ command again. Do not rewrite the script or give up.
 
 ## Showing the user
 
-Keep the model beside the conversation when the host supports it:
+The default interactive preview is the **live viewer with History**. For
+"show it", "how can I look at it?", "open the model" or "show history", use
+this procedure even if an earlier message links an exported HTML file:
 
-- **Rendered pictures**: show the latest four-view PNG in the conversation
-  after a meaningful build. In Codex, use Markdown image syntax with its
-  absolute path: `![Model views](/absolute/path/.cadskill/bracket.png)`.
-  Opening it with `view_image` checks your work; include it in your reply so
-  the user can see it too.
-- **Live in-app viewer**: after the first successful build, run
-  `cadskill view --no-open` to get the URL without launching the system
-  browser. In Codex desktop, use the available `open_in_codex` tool with
-  `{"target":{"type":"browser","url":"THE_RETURNED_URL"},"placement":"right"}`.
-  If that tool is unavailable but a built-in browser tool is available, open
-  the URL there. Reuse the same tab after later builds: the viewer updates
-  automatically. Check that the model loads before saying it is visible.
-- **Page or artifact**: `cadskill export bracket html` writes
-  `.cadskill/bracket.html`, the viewer with the current model inside it as
-  one file that needs no server. If the host can display HTML artifacts,
-  use that surface when the user wants a snapshot, wants to keep or share the
-  model, or cannot reach the live viewer. Export again and update the same
-  artifact after model changes. A file link alone is not a rendered preview.
+1. Run `cadskill view MODEL --no-open`. It returns an HTTP URL for that
+   model, including its history; later builds of other models do not switch
+   this view. Use the returned URL, not a guessed port or local file path.
+2. In Codex desktop, use the available `open_in_codex` tool with
+   `{"target":{"type":"browser","url":"THE_RETURNED_URL"},"placement":"right"}`.
+   If unavailable, use an available built-in browser tool. Reuse the same
+   tab for later revisions. Verify the requested model and the History
+   control are visible before saying it is open.
+3. In the reply, link **View in 3D** to that live HTTP URL. Share the latest
+   four-view PNG inline after meaningful changes using an absolute path:
+   `![Model views](/absolute/path/.cadskill/bracket.png)`.
 
-If there is no in-app preview or artifact surface, show the PNG and provide
-the live viewer link. Run bare `cadskill view` only when the user asks to
-open their system browser; it launches an external browser window.
+If no in-app browser is available, provide the live URL and PNG. Use bare
+`cadskill view MODEL` or macOS `open` only when the user explicitly asks for
+the system browser.
+
+**HTML exports are offline snapshots without History.** Do not export,
+open or link a local `.html` file as the default model preview. Export HTML
+only when the user requests an HTML file, offline copy or snapshot; label
+that link **HTML snapshot (no history)**. A host's native artifact surface
+can display such a requested snapshot. STEP/STL/3MF download links are
+separate from the live preview.
 
 ## Script rules
 
@@ -110,7 +117,7 @@ COMMAND --help` lists every option.
 
 | Command | What it does |
 |---|---|
-| `cadskill run SCRIPT [--note "why"] [--timeout 120]` | Build and save a version; write the four-view picture |
+| `cadskill run SCRIPT [--model NAME] [--note "why"] [--timeout 120]` | Build and save a version; keep NAME stable across revisions |
 | `cadskill render MODEL [--view top] [--direction 1,1,1]` | Another picture, to `.cadskill/MODEL-render.png` |
 | `cadskill render MODEL --section 0,-1,0` | Cut the model open (removes the side the normal points to) |
 | `cadskill render MODEL --highlight 'plate/faces:>Z'` | Draw what a selector matches in red |
@@ -120,7 +127,7 @@ COMMAND --help` lists every option.
 | `cadskill import MODEL FILE` | Copy a STEP or BREP file in, for the script to load with `asset("name.step")` |
 | `cadskill show MODEL`, `versions MODEL`, `models` | The saved script, its history, all models |
 | `cadskill restore MODEL N --to SCRIPT` | Go back to version N and write that script back to the file |
-| `cadskill view --no-open` | Get the live 3D viewer URL for the host's preview pane |
+| `cadskill view MODEL --no-open` | Get a live model URL with History for the host's browser pane |
 
 A **selection** (for `--highlight` and `measure`) is `PART`, `KIND` or
 `PART/KIND`, optionally followed by `:SELECTOR` or `@ROWS` (row numbers from

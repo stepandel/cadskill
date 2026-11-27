@@ -51,7 +51,7 @@ export async function connect(handlers) {
   }
 
   if (window.parent !== window) {
-    const app = new App({ name: 'CadSkill viewer', version: '0.1.1' });
+    const app = new App({ name: 'CadSkill viewer', version: '0.1.2' });
     const call = async (name, args) => {
       const res = await app.callServerTool({ name, arguments: args });
       const text = res.content && res.content.find((c) => c.type === 'text');
@@ -85,9 +85,11 @@ export async function connect(handlers) {
     mesh: async (model, version) => decode(await get('./mesh?model=' + encodeURIComponent(model) + '&version=' + version)),
     history: (model) => get('./history?model=' + encodeURIComponent(model)),
   };
+  const model = new URLSearchParams(window.location.search).get('model');
+  const statePath = './state' + (model ? '?model=' + encodeURIComponent(model) : '');
   const poll = async () => {
     try {
-      const state = await get('./state');
+      const state = await get(statePath);
       if (state.model) follow(state.model, state.version);
       else handlers.status('No model yet. Ask Claude to build one.');
     } catch (e) {

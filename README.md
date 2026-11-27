@@ -88,11 +88,14 @@ $cadskill model a 60 x 40 mm mounting plate with four M4 holes
 
 Codex writes scripts, runs `cadskill`, opens the rendered PNGs to check its
 work, and shares the pictures in the conversation. For interactive 3D in
-Codex desktop, the skill runs `cadskill view --no-open` and opens the returned
+Codex desktop, the skill runs `cadskill view MODEL --no-open` and opens the returned
 URL in the app's right panel using `open_in_codex` when that tool is
-available. The viewer follows later builds in the same tab. A host with an
-HTML artifact surface can show a self-contained export there too. Without
-either surface, the skill provides pictures and a viewer link; it opens the
+available. This URL stays on the requested model and includes its History
+button, even when another model is built. The skill uses the live HTTP URL
+for **View in 3D** links, including when revisiting an existing design.
+HTML exports are available for requested offline copies or snapshots and
+are labeled **HTML snapshot (no history)**. Without an in-app browser,
+the skill provides pictures and the live viewer link; it opens the
 system browser only when asked. See [the built-in browser](https://learn.chatgpt.com/docs/browser#use-the-desktop-browser).
 
 The first build has the same CAD kernel warm-up as Claude. Codex uses its
@@ -221,16 +224,23 @@ current.
 | `cadskill export MODEL FORMAT` | STEP, STL, 3MF, GLB, BREP, SVG, or HTML |
 | `cadskill import MODEL FILE` | Make a STEP or BREP file available to the script |
 | `cadskill show`, `versions`, `restore`, `models` | The saved script, history, undo, all models |
-| `cadskill view --no-open` | Get the live viewer URL for an in-app preview |
+| `cadskill view MODEL --no-open` | Get a live model URL with History for an in-app preview |
 | `cadskill status`, `stop` | The background process |
 
-**Seeing the model.** `cadskill view --no-open` prints the local viewer URL
-without launching a browser. The skill opens it inside the host app when
-supported, so the model stays beside the conversation as it changes. Bare
-`cadskill view` still opens the system browser when requested.
-`cadskill export MODEL html` writes the same viewer with the model inside it
-as one file that needs no server; hosts that support HTML artifacts can
-display that snapshot. The skill also shares rendered PNGs in the chat.
+**Seeing the model.** `cadskill view MODEL --no-open` prints the local viewer
+URL without launching a browser. The URL includes the model name and follows
+its latest version, with History available; leave `MODEL` out to follow
+whichever model was built most recently. The skill opens the URL inside the
+host app when supported and links to that URL in the conversation. Bare
+`cadskill view MODEL` still opens the system browser when requested.
+`cadskill export MODEL html` produces an offline snapshot with no History;
+it is for explicit HTML or offline export requests. The skill also shares
+rendered PNGs in the chat.
+
+**Keeping history together.** Use the same model name for revisions, and
+`--note` to label each change. If script files have revision suffixes, use
+`cadskill run bracket_v2.py --model bracket --note "Longer mounting slots"`
+to append to the existing model's history rather than creating a new model.
 
 **The background process.** Loading the CAD kernel is too slow to do on every
 command, so the first command starts a process that keeps it loaded and
@@ -355,7 +365,7 @@ To try the installer against your working copy instead of PyPI:
 
 ```sh
 (cd server && uv build)
-CADSKILL_PACKAGE=server/dist/cadskill-0.1.1-py3-none-any.whl sh install.sh
+CADSKILL_PACKAGE=server/dist/cadskill-0.1.2-py3-none-any.whl sh install.sh
 ```
 
 ### Release
@@ -366,7 +376,7 @@ in `src/ui/host.js`. Refresh the lockfiles and rebuild the viewer, commit,
 then push a matching tag:
 
 ```sh
-git tag v0.1.1 && git push origin v0.1.1
+git tag v0.1.2 && git push origin v0.1.2
 ```
 
 `.github/workflows/release.yml` builds the package and publishes it to PyPI

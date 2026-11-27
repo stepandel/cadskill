@@ -1,5 +1,6 @@
 """The tools, called the way Claude calls them: through an MCP client session."""
 import json
+import urllib.error
 import urllib.request
 
 import pytest
@@ -109,3 +110,33 @@ async def test_viewer_gets_meshes(two):
         assert json.loads(get("mesh?model=default&version=1"))["parts"][1]["name"] == "post"
         assert json.loads(get("history?model=default"))["versions"][0]["version"] == 1
         assert b"<" in get("")
+
+
+@pytest.mark.anyio
+async def test_live_model_link_keeps_its_history(plate):
+    server.store.save("bracket", plate, "first", "original")
+    server.store.save("other", plate, "other model")
+    server._shown.update(model="other", version=1)
+
+    async with connect(server.mcp._mcp_server) as client:
+        result = await client.call_tool("open_viewer", {"model": "bracket"})
+        assert not result.isError
+        url = result.structuredContent["url"]
+        base = url.split("?", 1)[0]
+        assert url.endswith("?model=bracket")
+
+        def get(path):
+            with urllib.request.urlopen(base + path, timeout=10) as response:
+                return json.load(response)
+
+        assert get("state") == {"model": "other", "version": 1}
+        assert get("state?model=bracket") == {"model": "bracket", "version": 1}
+        server.store.save("bracket", plate, "second", "revised")
+        assert get("state?model=bracket") == {"model": "bracket", "version": 2}
+        history = get("history?model=bracket")
+        assert [v["note"] for v in history["versions"]] == ["original", "revised"]
+        assert get("state") == {"model": "other", "version": 1}
+        assert (await client.call_tool("open_viewer", {"model": "missing"})).isError
+        with pytest.raises(urllib.error.HTTPError) as error:
+            get("state?model=missing")
+        assert error.value.code == 400

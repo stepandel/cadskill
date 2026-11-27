@@ -1,6 +1,6 @@
 ---
 name: cadskill
-description: Design 3D parts and assemblies with the CadSkill tools (run_model, edit_model, inspect, render, measure, export). Use when the user asks to model, design, draw, modify or export a physical part, enclosure, bracket, fixture or other 3D object, asks for a STEP, STL or 3MF file, or wants to change or measure a model made earlier.
+description: Design 3D parts and assemblies with the CadSkill MCP tools. Use to build, change, measure, export or view physical parts and assemblies, produce STEP/STL/3MF files, show an existing model in 3D, or browse its version history.
 ---
 
 # Modelling with CadSkill
@@ -24,6 +24,9 @@ check your work with the numbers and pictures the tools return.
 
 A failed run changes nothing. The reply names the failing line; fix that line
 with `edit_model` against the script as it was before the failed edit.
+
+Keep the same `model` name for revisions of a design and use `note` to
+describe each change. Creating `_v2` / `_v3` model names splits its history.
 
 **First use on a computer is slow.** If a tool replies that the CAD kernel is
 still starting, nothing is wrong: the first start takes one to two minutes,
@@ -110,19 +113,24 @@ index numbers from an earlier version.
 
 ## Showing the user
 
-Use the inline MCP App when the host displays it. If it does not, call
-`open_viewer` to get the live viewer URL; this does not launch a browser.
+For "show it", "open the model" or "show history", use the live viewer with
+History, even if earlier messages link an exported HTML file. Use the inline
+MCP App when the host displays it. Otherwise call `open_viewer` with `model`
+to get that model's live HTTP URL; this does not launch a browser.
 In Codex desktop, use the available `open_in_codex` tool with
 `{"target":{"type":"browser","url":"THE_RETURNED_URL"},"placement":"right"}`.
 If that tool is unavailable but a built-in browser tool is available, open
-the URL there. Reuse the same tab as the model changes, and check that the
-model loads before saying it is visible.
+the URL there. Reuse the same tab as the model changes. Verify the requested
+model and the History control are visible, and link **View in 3D** to that
+live HTTP URL in your reply.
 
-For a snapshot in a host that displays HTML artifacts, `export` with
-`format="html"` writes a self-contained viewer. Display that file as an
-artifact and update it after model changes. If neither preview surface is
-available, share the rendered pictures and live viewer link. Open a system
-browser only when the user asks for it.
+HTML exports are offline snapshots without History. Do not export, open or
+link a local `.html` file as the default preview. Use `export` with
+`format="html"` only for a requested HTML file, offline copy or snapshot;
+label it **HTML snapshot (no history)**. Hosts with HTML artifact support
+can display that requested snapshot. If no preview surface is available,
+share the rendered pictures and live URL. Open a system browser only when
+the user explicitly asks for it.
 
 ## Working with the user
 

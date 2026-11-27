@@ -15,7 +15,7 @@ from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Annotated, Literal
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import anyio
 from mcp.server.fastmcp import FastMCP
@@ -46,9 +46,13 @@ named constants at the top. A failed run changes nothing: the previous version s
 If a tool answers that the CAD kernel is still starting, that is normal on first use (one to two
 minutes, once per computer). Tell the user it is warming up, wait about 20 seconds, and repeat the call.
 
-Show the inline MCP App when available. Otherwise, open_viewer returns a URL for the host's
-in-app preview or built-in browser. Reuse that view as the model changes. Open an external
-system browser only when the user asks for it. Export HTML for hosts that display artifacts.
+For requests to show, view or inspect a model or its history, show the inline MCP App when
+available. Otherwise call open_viewer with the model name and open its URL in the host's
+in-app browser. Include that live URL in the reply and reuse it as the model changes.
+HTML exports are offline snapshots without history: export or open them only when the user
+asks for an HTML file, offline copy or snapshot. A previous HTML link is not the live viewer.
+Open an external system browser only when the user asks for it. Keep the same model name
+for revisions so their version history stays together.
 """
 
 mcp = FastMCP("cadskill", instructions=INSTRUCTIONS)
@@ -326,7 +330,8 @@ async def export(
             Path(target).parent.mkdir(parents=True, exist_ok=True)
             Path(target).write_text(page)
             return _text(f"Wrote {target} ({len(page.encode()):,} bytes): the viewer with '{clean(model)}' "
-                         f"version {store.version(model)} inside.")
+                         f"version {store.version(model)} inside. This is an offline snapshot without version history; "
+                         "use the live viewer for model previews and history.")
         out = await _work("export", 180, code=code, model_dir=str(store.dir(model)), fmt=format, path=target, names=parts)
     except Problem as exc:
         return _text(str(exc), error=True)
@@ -425,8 +430,13 @@ class _Page(BaseHTTPRequestHandler):
             if url.path == "/":
                 self._send(200, "text/html; charset=utf-8", _viewer_html().encode())
             elif url.path == "/state":
+                requested = parse_qs(url.query).get("model")
                 state = dict(_shown)
-                if state["model"] is None:      # nothing built in this session yet: show the newest saved model
+                if requested:
+                    model = clean(requested[0])
+                    _require(model)
+                    state = {"model": model, "version": store.version(model)}
+                elif state["model"] is None:    # nothing built in this session yet: show the newest saved model
                     models = store.models()
                     if models:
                         newest = max(models, key=lambda m: m["last"]["time"])
@@ -463,14 +473,23 @@ def start_viewer_page(port: int = VIEWER_PORT, handler: type[BaseHTTPRequestHand
 
 
 @mcp.tool()
-def open_viewer() -> CallToolResult:
+def open_viewer(model: Model | None = None) -> CallToolResult:
     """Get the address of a live 3D view without launching a browser.
 
     Use it when the conversation does not show the model inline. Open the URL in the host's
-    in-app preview when available. The page follows the model as it changes.
+    in-app preview when available. Pass model to keep the page on that model and its history,
+    even when other models are built. Omit model to follow the latest model.
     """
     try:
-        return _text(f"The live viewer is at {start_viewer_page()} (this computer only). It updates after every build.")
+        if model is not None:
+            model = clean(model)
+            _require(model)
+        url = start_viewer_page()
+        if model is not None:
+            url += "?" + urlencode({"model": model})
+        return _text(f"The live viewer is at {url} (this computer only). It includes version history "
+                     "and updates after every build. Open this URL in the host's browser panel.",
+                     structuredContent={"url": url, "model": model})
     except Problem as exc:
         return _text(str(exc), error=True)
 

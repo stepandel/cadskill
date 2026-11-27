@@ -1,6 +1,6 @@
 {
   "name": "claude-3d-modeling-plugin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "CadSkill: 3D CAD for Claude and Codex. Agents build models with CadQuery scripts through an MCP server; this package builds the viewer page.",
   "type": "module",

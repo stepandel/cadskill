@@ -232,6 +232,7 @@ def _parser() -> argparse.ArgumentParser:
     add("models", "List the models saved on this computer.", model=False)
 
     s = add("view", "Open the live 3D viewer in the browser. It follows the model as it changes.", model=False)
+    s.add_argument("model", nargs="?", type=_model, help="Keep the viewer on this model, with its version history. Default: follow the latest model.")
     s.add_argument("--no-open", action="store_true", help="Print the URL for an in-app preview without launching the system browser.")
 
     s = add("install", "Install the CadSkill skill for Claude or Codex.", model=False)
@@ -415,11 +416,10 @@ def _run_command(a: argparse.Namespace) -> int:
             print("Not running.")
         return 0
     if c == "view":
-        url = _daemon()["url"]
-        if not a.no_open:
-            webbrowser.open(url)
-        print(f"The live viewer is at {url} (this computer only). It updates after every build.")
-        return 0
+        reply = call("open_viewer", {"model": a.model})
+        if not reply["error"] and not a.no_open:
+            webbrowser.open(reply["data"]["url"])
+        return _finish(reply)
     if c == "models":
         return _finish(call("list_models", {}))
 

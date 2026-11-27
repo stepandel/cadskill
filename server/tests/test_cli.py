@@ -34,6 +34,31 @@ def test_model_named_by_script():
     assert cli._model("bracket") == "bracket"
 
 
+@pytest.mark.parametrize("no_open", [True, False])
+def test_view_uses_live_model_url(monkeypatch, capsys, no_open):
+    requests, opened = [], []
+    url = "http://127.0.0.1:8791/?model=wall-bracket"
+
+    def call(tool, args):
+        requests.append((tool, args))
+        return {"error": False, "text": f"The live viewer is at {url}", "data": {"url": url}}
+
+    monkeypatch.setattr(cli, "call", call)
+    monkeypatch.setattr(cli.webbrowser, "open", opened.append)
+    assert cli.main(["view", "parts/Wall Bracket.py", *(["--no-open"] if no_open else [])]) == 0
+    assert requests == [("open_viewer", {"model": "wall-bracket"})]
+    assert opened == ([] if no_open else [url])
+    assert url in capsys.readouterr().out
+
+
+def test_view_does_not_open_browser_on_error(monkeypatch):
+    opened = []
+    monkeypatch.setattr(cli, "call", lambda *args: {"error": True, "text": "No such model."})
+    monkeypatch.setattr(cli.webbrowser, "open", opened.append)
+    assert cli.main(["view", "missing"]) == 1
+    assert not opened
+
+
 def test_daemon_runs_tools(plate, tmp_path):
     built = daemon._call("run_model", {"code": plate, "model": "plate"})
     assert not built["error"] and "version 1" in built["text"] and len(built["images"]) == 1
