@@ -1,5 +1,7 @@
 # CadSkill
 
+<img width="3984" height="2696" alt="CleanShot 2026-11-27 at 14 40 21@2x" src="https://github.com/user-attachments/assets/3ac0e006-c7c6-4d6d-b21e-dc1c80ff1d07" />
+
 3D CAD for Claude and Codex. Your agent builds real solid models by writing
 [CadQuery](https://cadquery.readthedocs.io) scripts, checks them with
 measurements and rendered views, and exports STEP, STL and other files. A
