@@ -108,11 +108,24 @@ index numbers from an earlier version.
 - To build on an existing STEP file, call `import_file` with its path, then
   load it in the script: `cq.importers.importStep(asset("name.step"))`.
 
+## Showing the user
+
+Use the inline MCP App when the host displays it. If it does not, call
+`open_viewer` to get the live viewer URL; this does not launch a browser.
+In Codex desktop, use the available `open_in_codex` tool with
+`{"target":{"type":"browser","url":"THE_RETURNED_URL"},"placement":"right"}`.
+If that tool is unavailable but a built-in browser tool is available, open
+the URL there. Reuse the same tab as the model changes, and check that the
+model loads before saying it is visible.
+
+For a snapshot in a host that displays HTML artifacts, `export` with
+`format="html"` writes a self-contained viewer. Display that file as an
+artifact and update it after model changes. If neither preview surface is
+available, share the rendered pictures and live viewer link. Open a system
+browser only when the user asks for it.
+
 ## Working with the user
 
-- The user sees a live 3D view of the model beside the conversation where the
-  app supports it. If they say they cannot see it, call `open_viewer` and give
-  them the address.
 - State the key dimensions you used, and name any you had to assume.
 - Use a separate `model` name for each unrelated design so their version
   histories do not mix.

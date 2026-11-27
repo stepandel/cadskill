@@ -232,7 +232,7 @@ def _parser() -> argparse.ArgumentParser:
     add("models", "List the models saved on this computer.", model=False)
 
     s = add("view", "Open the live 3D viewer in the browser. It follows the model as it changes.", model=False)
-    s.add_argument("--no-open", action="store_true", help="Only print the address.")
+    s.add_argument("--no-open", action="store_true", help="Print the URL for an in-app preview without launching the system browser.")
 
     s = add("install", "Install the CadSkill skill for Claude or Codex.", model=False)
     s.add_argument("--agent", choices=["claude", "codex"], default="claude", help="Agent to install for. Default: claude.")

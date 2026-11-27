@@ -46,17 +46,30 @@ command again. Do not rewrite the script or give up.
 
 ## Showing the user
 
-Give the user a 3D view as well as any rendered pictures you share:
+Keep the model beside the conversation when the host supports it:
 
-- **Live viewer**: `cadskill view` opens a page in their browser that follows
-  the model as you rebuild it. Do this once, after the first successful build.
-  If you have your own browser or preview pane, you can open the address it
-  prints there instead.
-- **As a page or artifact**: `cadskill export bracket html` writes
-  `.cadskill/bracket.html`, the same viewer with the model inside it: one
-  file, no server. If you can publish artifacts, publish that file when the
-  user wants to keep or share the model, or cannot open a local page. Export
-  again and republish after the model changes.
+- **Rendered pictures**: show the latest four-view PNG in the conversation
+  after a meaningful build. In Codex, use Markdown image syntax with its
+  absolute path: `![Model views](/absolute/path/.cadskill/bracket.png)`.
+  Opening it with `view_image` checks your work; include it in your reply so
+  the user can see it too.
+- **Live in-app viewer**: after the first successful build, run
+  `cadskill view --no-open` to get the URL without launching the system
+  browser. In Codex desktop, use the available `open_in_codex` tool with
+  `{"target":{"type":"browser","url":"THE_RETURNED_URL"},"placement":"right"}`.
+  If that tool is unavailable but a built-in browser tool is available, open
+  the URL there. Reuse the same tab after later builds: the viewer updates
+  automatically. Check that the model loads before saying it is visible.
+- **Page or artifact**: `cadskill export bracket html` writes
+  `.cadskill/bracket.html`, the viewer with the current model inside it as
+  one file that needs no server. If the host can display HTML artifacts,
+  use that surface when the user wants a snapshot, wants to keep or share the
+  model, or cannot reach the live viewer. Export again and update the same
+  artifact after model changes. A file link alone is not a rendered preview.
+
+If there is no in-app preview or artifact surface, show the PNG and provide
+the live viewer link. Run bare `cadskill view` only when the user asks to
+open their system browser; it launches an external browser window.
 
 ## Script rules
 
@@ -107,7 +120,7 @@ COMMAND --help` lists every option.
 | `cadskill import MODEL FILE` | Copy a STEP or BREP file in, for the script to load with `asset("name.step")` |
 | `cadskill show MODEL`, `versions MODEL`, `models` | The saved script, its history, all models |
 | `cadskill restore MODEL N --to SCRIPT` | Go back to version N and write that script back to the file |
-| `cadskill view` | Open the live 3D viewer |
+| `cadskill view --no-open` | Get the live 3D viewer URL for the host's preview pane |
 
 A **selection** (for `--highlight` and `measure`) is `PART`, `KIND` or
 `PART/KIND`, optionally followed by `:SELECTOR` or `@ROWS` (row numbers from

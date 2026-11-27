@@ -45,6 +45,10 @@ named constants at the top. A failed run changes nothing: the previous version s
 
 If a tool answers that the CAD kernel is still starting, that is normal on first use (one to two
 minutes, once per computer). Tell the user it is warming up, wait about 20 seconds, and repeat the call.
+
+Show the inline MCP App when available. Otherwise, open_viewer returns a URL for the host's
+in-app preview or built-in browser. Reuse that view as the model changes. Open an external
+system browser only when the user asks for it. Export HTML for hosts that display artifacts.
 """
 
 mcp = FastMCP("cadskill", instructions=INSTRUCTIONS)
@@ -460,9 +464,10 @@ def start_viewer_page(port: int = VIEWER_PORT, handler: type[BaseHTTPRequestHand
 
 @mcp.tool()
 def open_viewer() -> CallToolResult:
-    """Get the address of a live 3D view of the model for the person to open in a browser.
+    """Get the address of a live 3D view without launching a browser.
 
-    Use it when the conversation does not show the model inline. The page follows the model as it changes.
+    Use it when the conversation does not show the model inline. Open the URL in the host's
+    in-app preview when available. The page follows the model as it changes.
     """
     try:
         return _text(f"The live viewer is at {start_viewer_page()} (this computer only). It updates after every build.")

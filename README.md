@@ -87,9 +87,16 @@ $cadskill model a 60 x 40 mm mounting plate with four M4 holes
 ```
 
 Codex writes scripts, runs `cadskill`, opens the rendered PNGs to check its
-work, and uses the browser viewer for interactive 3D. The first build has the
-same CAD kernel warm-up as Claude. Codex uses its existing command
-permissions; `--allow` and `--desktop` are Claude-only options.
+work, and shares the pictures in the conversation. For interactive 3D in
+Codex desktop, the skill runs `cadskill view --no-open` and opens the returned
+URL in the app's right panel using `open_in_codex` when that tool is
+available. The viewer follows later builds in the same tab. A host with an
+HTML artifact surface can show a self-contained export there too. Without
+either surface, the skill provides pictures and a viewer link; it opens the
+system browser only when asked. See [the built-in browser](https://learn.chatgpt.com/docs/browser#use-the-desktop-browser).
+
+The first build has the same CAD kernel warm-up as Claude. Codex uses its
+existing command permissions; `--allow` and `--desktop` are Claude-only options.
 
 To use the MCP tools instead of the command-based skill, register the
 installed server with Codex:
@@ -214,13 +221,16 @@ current.
 | `cadskill export MODEL FORMAT` | STEP, STL, 3MF, GLB, BREP, SVG, or HTML |
 | `cadskill import MODEL FILE` | Make a STEP or BREP file available to the script |
 | `cadskill show`, `versions`, `restore`, `models` | The saved script, history, undo, all models |
-| `cadskill view` | Open the live viewer in the browser |
+| `cadskill view --no-open` | Get the live viewer URL for an in-app preview |
 | `cadskill status`, `stop` | The background process |
 
-**Seeing the model.** `cadskill view` opens a local page that follows the
-model as Claude rebuilds it. `cadskill export MODEL html` writes the same
-viewer with the model inside it as one file that needs no server: it opens
-from disk, and Claude can publish it as an artifact.
+**Seeing the model.** `cadskill view --no-open` prints the local viewer URL
+without launching a browser. The skill opens it inside the host app when
+supported, so the model stays beside the conversation as it changes. Bare
+`cadskill view` still opens the system browser when requested.
+`cadskill export MODEL html` writes the same viewer with the model inside it
+as one file that needs no server; hosts that support HTML artifacts can
+display that snapshot. The skill also shares rendered PNGs in the chat.
 
 **The background process.** Loading the CAD kernel is too slow to do on every
 command, so the first command starts a process that keeps it loaded and
@@ -294,7 +304,8 @@ After the first time, starting takes about 3 to 5 seconds.
 Tested here: every `cadskill` command against the real kernel, the skill
 install, the live viewer page, the single-file HTML export opened with no
 server, the server over stdio and every tool. `claude plugin validate .`
-passes.
+passes. The live viewer also renders a saved two-part model in Codex's
+right-hand browser panel.
 
 Not yet tried:
 
