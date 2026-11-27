@@ -111,6 +111,31 @@ index numbers from an earlier version.
 - To build on an existing STEP file, call `import_file` with its path, then
   load it in the script: `cq.importers.importStep(asset("name.step"))`.
 
+## Revisions and build steps
+
+The live viewer calls saved designs **Revisions**. `restore_version` rebuilds
+one as a new revision, preserving later saves. New revisions preserve imported
+assets and record their Python/CadQuery/kernel versions. Older saves without
+snapshots use the remaining imported files; recorded runtime mismatches must
+be resolved before rebuilding.
+
+For operation inspection, call `open_build_steps(model=..., version=...)`
+and open its returned URL in the host's in-app browser. It uses upstream
+Jupyter CadQuery Replay and requires the optional `cadskill[replay]` install.
+The URL opens the CadSkill page with Replay embedded in Build steps and
+Model/Revisions navigation alongside it. The tool explains how to install
+the optional components when missing. Replay records Workplane
+and Sketch chains, so direct solids and imported STEP parts may show final
+geometry without recorded steps. Do not promise a complete feature tree or
+rewrite a working model solely to suit Replay.
+
+For "remove the holes but keep the longer pins", use `edit_model` on the
+current recipe and rebuild. Use named intermediate variables and ordinary
+Boolean parameters for features that need repeated on/off changes. Keep the
+other dimensions, then verify the solid and relevant measurements. Restore
+an older revision only for a whole-design rollback; Replay inspects steps
+and does not suppress arbitrary operations.
+
 ## Showing the user
 
 For "show it", "open the model" or "show history", use the live viewer with

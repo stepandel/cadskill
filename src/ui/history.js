@@ -1,6 +1,6 @@
 // The history panel: every saved version of the model, newest first. Clicking
 // one shows it in the view; the model itself stays at its latest version
-// (going back for real is Claude's restore_version).
+// (going back for real is the assistant's restore_version).
 import { $ } from './dom.js';
 
 const panel = $('history'), list = $('versions'), toggle = $('toggle-history');
@@ -15,7 +15,7 @@ export function setupHistory(opts) { load = opts.load; pick = opts.pick; }
 // Re-reads the version list, if the panel is open (it is read again on opening).
 export async function refreshHistory() {
   if (panel.hidden || !load) return;
-  try { versions = (await load()).versions || []; failed = ''; } catch (e) { failed = 'Could not read the history.'; }
+  try { versions = (await load()).versions || []; failed = ''; } catch (e) { failed = 'Could not read the revisions.'; }
   render();
 }
 

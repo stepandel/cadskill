@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from .runner import DEFAULT_TIMEOUT, Problem, Runner, Starting
 from .store import Store, clean
+from .replay import ReplayServer
 
 VIEWER_URI = "ui://cadskill/viewer.html"
 VIEWER_FILE = Path(__file__).parent / "static" / "viewer.html"
@@ -53,6 +54,12 @@ HTML exports are offline snapshots without history: export or open them only whe
 asks for an HTML file, offline copy or snapshot. A previous HTML link is not the live viewer.
 Open an external system browser only when the user asks for it. Keep the same model name
 for revisions so their version history stays together.
+
+The viewer labels saved versions Revisions. For build-step inspection call open_build_steps
+and open its URL in the host browser panel (optional cadskill[replay]). This uses upstream
+Jupyter CadQuery Replay for Workplane/Sketch chains. Direct solids and STEP imports have no
+original feature tree. For selective changes edit the current Python source and rebuild;
+restore_version replaces the whole design with a saved revision, recorded as a new version.
 """
 
 mcp = FastMCP("cadskill", instructions=INSTRUCTIONS)
@@ -60,6 +67,7 @@ store = Store()
 runner = Runner(start_wait=25)   # a call made while the kernel is still starting answers within 25 s
 _shown = {"model": None, "version": 0}       # what the viewer should be displaying
 _mesh_cache: dict[tuple[str, int], dict] = {}
+replay_server = ReplayServer()
 
 
 # ---------------------------------------------------------------- helpers
@@ -114,12 +122,28 @@ def _require(model: str) -> str:
     return code
 
 
-async def _run(model: str, code: str, note: str | None, timeout: float, what: str) -> CallToolResult:
+def _context(model: str, version: int | None = None) -> str:
+    version = store.version(model) if version is None else version
+    try:
+        store.check_environment(model, version)
+    except ValueError as exc:
+        raise Problem(str(exc)) from exc
+    return str(store.context(model, version))
+
+
+async def _run(model: str, code: str, note: str | None, timeout: float, what: str,
+               source_dir: str | None = None) -> CallToolResult:
     """Run a script and, if it works, make it the current version."""
+    with store.build(model, Path(source_dir) if source_dir else None) as directory:
+        return await _run_in(model, code, note, timeout, what, str(directory))
+
+
+async def _run_in(model: str, code: str, note: str | None, timeout: float, what: str,
+                  directory: str) -> CallToolResult:
     model = clean(model)
     was = store.version(model)
     try:
-        out = await _work("run", timeout, code=code, model_dir=str(store.dir(model)))
+        out = await _work("run", timeout, code=code, model_dir=directory)
     except Starting as exc:
         return _text(str(exc), error=True)
     except Problem as exc:
@@ -132,12 +156,12 @@ async def _run(model: str, code: str, note: str | None, timeout: float, what: st
         return _text(f"The script failed. {state}\n{where}{e['type']}: {e['message']}{printed}", error=True)
     parts = out["parts"]
     summary = ", ".join(f"{p['name']} {'×'.join(_fmt(v) for v in p['size'])}" for p in parts)
-    n = store.save(model, code, summary, note)
+    n = store.save(model, code, summary, note, source_dir=Path(directory))
     _shown.update(model=model, version=n)
     content = [TextContent(type="text", text=f"{what} Model '{model}' is now version {n}, {len(parts)} part"
                                              f"{'s' if len(parts) != 1 else ''}:\n{_describe(parts)}{printed}")]
     try:
-        shot = await _work("render", code=code, model_dir=str(store.dir(model)), spec={})
+        shot = await _work("render", code=code, model_dir=_context(model, n), spec={})
         content.append(_png(shot["png"]))
     except Problem as exc:
         content.append(TextContent(type="text", text=f"(No picture: {exc})"))
@@ -192,7 +216,7 @@ async def get_model(model: Model = "default") -> CallToolResult:
     """Return the model's current script, its version number and its parts."""
     try:
         code = _require(model)
-        out = await _work("run", code=code, model_dir=str(store.dir(model)))
+        out = await _work("run", code=code, model_dir=_context(model))
     except Problem as exc:
         return _text(str(exc), error=True)
     parts = _describe(out["parts"]) if "parts" in out else f"(the script currently fails: {out['error']['message']})"
@@ -224,9 +248,12 @@ async def restore_version(version: int, model: Model = "default") -> CallToolRes
     """Go back to an earlier version. This is undo: the old script is rebuilt and saved as the newest version."""
     try:
         code = store.code(model, version)
+        directory = _context(model, version)
     except KeyError:
         return _text(f"Model '{clean(model)}' has no version {version}. See list_versions.", error=True)
-    return await _run(model, code, f"restored version {version}", DEFAULT_TIMEOUT, f"Restored version {version}.")
+    except Problem as exc:
+        return _text(str(exc), error=True)
+    return await _run(model, code, f"restored version {version}", DEFAULT_TIMEOUT, f"Restored version {version}.", directory)
 
 
 # ---------------------------------------------------------------- checking
@@ -257,7 +284,7 @@ async def render(
     if highlight:
         spec["highlight"] = highlight.model_dump(exclude_none=True)
     try:
-        shot = await _work("render", code=_require(model), model_dir=str(store.dir(model)), spec=spec)
+        shot = await _work("render", code=_require(model), model_dir=_context(model), spec=spec)
     except Problem as exc:
         return _text(str(exc), error=True)
     return CallToolResult(content=[TextContent(type="text", text="Views: " + ", ".join(shot["views"])), _png(shot["png"])])
@@ -278,7 +305,7 @@ async def inspect(
     """
     sel = {"part": part, "kind": kind, "selector": selector}
     try:
-        out = await _work("inspect", code=_require(model), model_dir=str(store.dir(model)), sel=sel)
+        out = await _work("inspect", code=_require(model), model_dir=_context(model), sel=sel)
     except Problem as exc:
         return _text(str(exc), error=True)
     head = f"{out['part']}: {out['matched']} {out['kind']}" + (f" match '{selector}'" if selector else "")
@@ -295,7 +322,7 @@ async def measure(a: Selection, b: Selection, model: Model = "default") -> CallT
     Also gives the angle when both are a single flat face or a single straight edge.
     """
     try:
-        out = await _work("measure", code=_require(model), model_dir=str(store.dir(model)),
+        out = await _work("measure", code=_require(model), model_dir=_context(model),
                           a=a.model_dump(exclude_none=True), b=b.model_dump(exclude_none=True))
     except Problem as exc:
         return _text(str(exc), error=True)
@@ -332,7 +359,7 @@ async def export(
             return _text(f"Wrote {target} ({len(page.encode()):,} bytes): the viewer with '{clean(model)}' "
                          f"version {store.version(model)} inside. This is an offline snapshot without version history; "
                          "use the live viewer for model previews and history.")
-        out = await _work("export", 180, code=code, model_dir=str(store.dir(model)), fmt=format, path=target, names=parts)
+        out = await _work("export", 180, code=code, model_dir=_context(model), fmt=format, path=target, names=parts)
     except Problem as exc:
         return _text(str(exc), error=True)
     return _text(f"Wrote {out['path']} ({out['bytes']:,} bytes): " + ", ".join(out["parts"]) + ".")
@@ -360,7 +387,7 @@ def _mesh_for(model: str, version: int) -> dict:
     key = (model, version)
     if key not in _mesh_cache:
         code = store.code(model, version)
-        out = runner.call("mesh", code=code, model_dir=str(store.dir(model)))
+        out = runner.call("mesh", code=code, model_dir=_context(model, version))
         if len(_mesh_cache) >= 4:
             _mesh_cache.pop(next(iter(_mesh_cache)))
         _mesh_cache[key] = {"model": model, "version": version, **out}
@@ -447,6 +474,10 @@ class _Page(BaseHTTPRequestHandler):
             elif url.path == "/mesh":
                 q = parse_qs(url.query)
                 self._send(200, "application/json", json.dumps(_mesh_for(q["model"][0], int(q["version"][0]))).encode())
+            elif url.path == "/build-steps":
+                q = parse_qs(url.query)
+                data = _build_steps(q["model"][0], int(q["version"][0]))
+                self._send(200, "application/json", json.dumps(data).encode())
             else:
                 self._send(404, "text/plain", b"Not found")
         except (Problem, KeyError, ValueError) as exc:
@@ -494,6 +525,39 @@ def open_viewer(model: Model | None = None) -> CallToolResult:
         return _text(str(exc), error=True)
 
 
+def _build_steps(model: str, version: int | None = None) -> dict:
+    model = clean(model)
+    _require(model)
+    revision = store.version(model) if version is None else version
+    try:
+        back = start_viewer_page() + "?" + urlencode({"model": model})
+        url = replay_server.open(store, model, revision, back)
+    except (KeyError, ValueError) as exc:
+        raise Problem(str(exc)) from exc
+    return {"url": url, "model": model, "version": revision}
+
+
+@mcp.tool()
+def open_build_steps(model: Model = "default", version: int | None = None) -> CallToolResult:
+    """Get CadSkill's Build steps view for a saved revision; no browser is launched.
+
+    Optional: install cadskill[replay]. Open the returned URL in the host's in-app browser.
+    Replay inspects recorded Workplane/Sketch operations. Direct solids and imported STEP
+    files do not provide their original feature history. To change a feature, edit the source
+    and rebuild; to restore the whole design, use restore_version.
+    """
+    try:
+        data = _build_steps(model, version)
+        data["url"] = start_viewer_page() + "?" + urlencode({
+            "model": data["model"], "version": data["version"], "view": "steps"})
+        return _text(f"Build steps for '{data['model']}' version {data['version']}: {data['url']}\n"
+                     "Open this URL in the host's browser panel. Replay is embedded in the CadSkill viewer; "
+                     "use Model or Revisions to switch views.",
+                     structuredContent=data)
+    except Problem as exc:
+        return _text(str(exc), error=True)
+
+
 def main() -> None:
     """Run the MCP server on stdio. With --page, only serve the viewer page (for working on the viewer)."""
     import sys
@@ -502,7 +566,11 @@ def main() -> None:
     if "--page" in sys.argv:
         print(f"CadSkill viewer at {start_viewer_page()}", file=sys.stderr)
         threading.Event().wait()
-    mcp.run()
+    try:
+        mcp.run()
+    finally:
+        replay_server.stop()
+        runner.stop()
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ MAX_ROWS = 200
 MESH_TOLERANCE = 0.03
 MESH_ANGLE = 0.3
 
-_cache: "OrderedDict[str, list[dict]]" = OrderedDict()   # script hash -> parts
+_cache: "OrderedDict[str, list[dict]]" = OrderedDict()   # source and input context hash -> parts
 
 
 class ModelError(Exception):
@@ -144,7 +144,7 @@ def _execute(code: str, model_dir: str) -> dict:
 
 def _load(code: str, model_dir: str) -> list[dict]:
     """Parts for a script, from the cache or by running it. Raises ModelError if the script fails."""
-    key = hashlib.sha256(code.encode()).hexdigest()
+    key = _key(code, model_dir)
     if key in _cache:
         _cache.move_to_end(key)
         return _cache[key]
@@ -161,6 +161,15 @@ def _remember(key: str, parts: list[dict]) -> None:
     _cache.move_to_end(key)
     while len(_cache) > CACHE_SIZE:
         _cache.popitem(last=False)
+
+
+def _key(code: str, model_dir: str) -> str:
+    # The same source can import different geometry in two models or revisions.
+    from pathlib import Path
+    assets = Path(model_dir) / "assets"
+    inputs = [(str(p.relative_to(assets)), p.stat().st_size, p.stat().st_mtime_ns)
+              for p in sorted(assets.rglob("*")) if p.is_file()] if assets.exists() else []
+    return hashlib.sha256((code + "\0" + os.path.realpath(model_dir) + repr(inputs)).encode()).hexdigest()
 
 
 # ---------------------------------------------------------------- describing parts
@@ -208,7 +217,7 @@ def op_run(code: str, model_dir: str) -> dict:
     result = _execute(code, model_dir)
     if "error" in result:
         return result
-    _remember(hashlib.sha256(code.encode()).hexdigest(), result["parts"])
+    _remember(_key(code, model_dir), result["parts"])
     return {"parts": [_summary(p) for p in result["parts"]], "stdout": result["stdout"]}
 
 

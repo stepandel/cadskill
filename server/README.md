@@ -29,9 +29,23 @@ and ask it to model a part, or invoke `$cadskill` explicitly.
 
 The skill opens `cadskill view MODEL --no-open` in the app's browser pane
 for model previews and version history. It links to this live HTTP URL.
-HTML exports are offline snapshots without History and are used only for
+HTML exports are offline snapshots without revisions and are used only for
 requested HTML files or offline copies. Keep the same model name across
 revisions so their history stays together.
+
+The live viewer has **Revisions** for saved designs and **Build steps** for
+upstream Jupyter CadQuery Replay. Install the optional tools with
+`uv tool install --force 'cadskill[replay]'`, then restart CadSkill. Use
+`cadskill replay MODEL --version N --no-open` for an in-app preview URL.
+The URL opens the CadSkill page with Replay embedded in Build steps; Model
+and Revisions stay available in the same navigation.
+Replay inspects supported Workplane/Sketch chains; direct solids and STEP
+imports do not provide their original feature history. Feature changes are
+made by editing the Python recipe and rebuilding.
+
+New revisions preserve imported files and record the CAD runtime versions.
+Restoration uses those inputs, and reports incompatible runtime versions.
+Older saves can only use their remaining inputs.
 
 This package provides two commands: `cadskill`, which your agent runs from a
 shell, and `cadskill-mcp`, an MCP server with the same tools. See the

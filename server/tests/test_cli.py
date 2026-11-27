@@ -59,6 +59,18 @@ def test_view_does_not_open_browser_on_error(monkeypatch):
     assert not opened
 
 
+def test_replay_uses_saved_revision_without_opening_browser(monkeypatch, capsys):
+    requests, opened = [], []
+    def call(tool, args):
+        requests.append((tool, args))
+        return {"error": False, "text": "Replay is ready", "data": {"url": "http://127.0.0.1:8000/"}}
+    monkeypatch.setattr(cli, "call", call)
+    monkeypatch.setattr(cli.webbrowser, "open", opened.append)
+    assert cli.main(["replay", "Bracket.py", "--version", "2", "--no-open"]) == 0
+    assert requests == [("open_build_steps", {"model": "bracket", "version": 2})]
+    assert not opened
+
+
 def test_daemon_runs_tools(plate, tmp_path):
     built = daemon._call("run_model", {"code": plate, "model": "plate"})
     assert not built["error"] and "version 1" in built["text"] and len(built["images"]) == 1

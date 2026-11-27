@@ -125,6 +125,7 @@ def main() -> None:
             if json.loads(state.read_text()).get("token") == _token:
                 state.unlink()
         server.runner.stop()
+        server.replay_server.stop()
 
 
 if __name__ == "__main__":

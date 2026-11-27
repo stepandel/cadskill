@@ -235,6 +235,10 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("model", nargs="?", type=_model, help="Keep the viewer on this model, with its version history. Default: follow the latest model.")
     s.add_argument("--no-open", action="store_true", help="Print the URL for an in-app preview without launching the system browser.")
 
+    s = add("replay", "Inspect a saved revision with upstream Jupyter CadQuery Replay (requires cadskill[replay]).")
+    s.add_argument("--version", type=int, help="Saved revision. Default: latest.")
+    s.add_argument("--no-open", action="store_true", help="Print the URL for an in-app preview without launching the system browser.")
+
     s = add("install", "Install the CadSkill skill for Claude or Codex.", model=False)
     s.add_argument("--agent", choices=["claude", "codex"], default="claude", help="Agent to install for. Default: claude.")
     s.add_argument("--project", action="store_true", help="Into this project (.claude/skills or .agents/skills) instead of your home folder.")
@@ -417,6 +421,11 @@ def _run_command(a: argparse.Namespace) -> int:
         return 0
     if c == "view":
         reply = call("open_viewer", {"model": a.model})
+        if not reply["error"] and not a.no_open:
+            webbrowser.open(reply["data"]["url"])
+        return _finish(reply)
+    if c == "replay":
+        reply = call("open_build_steps", {"model": _model(a.model), "version": a.version})
         if not reply["error"] and not a.no_open:
             webbrowser.open(reply["data"]["url"])
         return _finish(reply)

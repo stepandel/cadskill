@@ -51,7 +51,7 @@ command again. Do not rewrite the script or give up.
 
 ## Showing the user
 
-The default interactive preview is the **live viewer with History**. For
+The default interactive preview is the **live viewer with Revisions**. For
 "show it", "how can I look at it?", "open the model" or "show history", use
 this procedure even if an earlier message links an exported HTML file:
 
@@ -61,7 +61,7 @@ this procedure even if an earlier message links an exported HTML file:
 2. In Codex desktop, use the available `open_in_codex` tool with
    `{"target":{"type":"browser","url":"THE_RETURNED_URL"},"placement":"right"}`.
    If unavailable, use an available built-in browser tool. Reuse the same
-   tab for later revisions. Verify the requested model and the History
+   tab for later revisions. Verify the requested model and the Revisions
    control are visible before saying it is open.
 3. In the reply, link **View in 3D** to that live HTTP URL. Share the latest
    four-view PNG inline after meaningful changes using an absolute path:
@@ -128,6 +128,33 @@ COMMAND --help` lists every option.
 | `cadskill show MODEL`, `versions MODEL`, `models` | The saved script, its history, all models |
 | `cadskill restore MODEL N --to SCRIPT` | Go back to version N and write that script back to the file |
 | `cadskill view MODEL --no-open` | Get a live model URL with History for the host's browser pane |
+| `cadskill replay MODEL [--version N] --no-open` | Get the upstream Replay build-step view for a saved revision; requires `cadskill[replay]` |
+
+## Revisions and build steps
+
+**Revisions** are complete saved designs. Restore one with `cadskill restore
+MODEL N --to SCRIPT`; it is rebuilt and saved as a new revision. New saves
+preserve imported assets and record Python/CadQuery/kernel versions. A runtime
+mismatch must be resolved before restoring; old saves without snapshots can
+only use their remaining imported files.
+
+**Build steps** inspect a single revision using upstream Jupyter CadQuery
+Replay. Use `cadskill replay MODEL --version N --no-open` and open its returned
+URL in the same in-app browser surface described above. The viewer's Build
+steps button embeds Replay for the revision currently being viewed; Model
+and Revisions stay in the same CadSkill page. The returned command URL also
+opens that page with Build steps selected. If the optional
+components are missing, the command provides their installation instructions.
+Replay supports recorded Workplane/Sketch chains; direct solids and imported
+STEP parts do not carry their original feature history. Do not promise a
+complete feature tree or rewrite a working model solely to suit Replay.
+
+For "remove the holes but keep the longer pins", edit the current Python
+recipe and rebuild. Use named intermediate variables, and ordinary Boolean
+parameters for features that need repeated on/off changes. Preserve unrelated
+dimensions, then verify the solid and relevant measurements. Restore an older
+revision only when the user wants that whole earlier design. Replay is an
+inspector, not an operation-suppression or undo engine.
 
 A **selection** (for `--highlight` and `measure`) is `PART`, `KIND` or
 `PART/KIND`, optionally followed by `:SELECTOR` or `@ROWS` (row numbers from

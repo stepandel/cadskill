@@ -61,6 +61,13 @@ export async function connect(handlers) {
     const api = {
       mesh: async (model, version) => decode(await call('get_mesh', { model, version })),
       history: (model) => call('get_history', { model }),
+      openSteps: async (model, version) => {
+        const res = await app.callServerTool({ name: 'open_build_steps', arguments: { model, version } });
+        if (res.isError || !res.structuredContent?.url) {
+          throw new Error(res.content?.find((c) => c.type === 'text')?.text || 'Could not open build steps.');
+        }
+        await app.openLink({ url: res.structuredContent.url });
+      },
     };
     app.ontoolresult = (result) => {
       const built = result.structuredContent;
@@ -84,6 +91,7 @@ export async function connect(handlers) {
   const api = {
     mesh: async (model, version) => decode(await get('./mesh?model=' + encodeURIComponent(model) + '&version=' + version)),
     history: (model) => get('./history?model=' + encodeURIComponent(model)),
+    steps: (model, version) => get('./build-steps?model=' + encodeURIComponent(model) + '&version=' + version),
   };
   const model = new URLSearchParams(window.location.search).get('model');
   const statePath = './state' + (model ? '?model=' + encodeURIComponent(model) : '');

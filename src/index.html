@@ -76,6 +76,23 @@
   main { position: fixed; inset: 0; }
   #stage { position: absolute; inset: 0; }
   #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  main[data-mode="steps"] #stage { visibility: hidden; }
+  main[data-mode="steps"] #readout { display: none; }
+
+  #steps-panel {
+    position: absolute; inset: 56px 24px 92px; z-index: 1;
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+  }
+  #steps-panel header {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px;
+    padding: 12px 16px; border-bottom: 1px solid var(--rule);
+  }
+  #steps-panel h2 { margin: 0; font: 600 14px/1.3 var(--body); }
+  #steps-source { color: var(--muted); font: 400 12px/1.4 var(--mono); overflow-wrap: anywhere; }
+  #steps-message { padding: 16px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #steps-message.bad { color: var(--bad); }
+  #steps-frame { width: 100%; flex: 1; min-height: 0; border: 0; background: var(--panel); }
 
   h1 {
     position: absolute; left: 24px; top: 24px; margin: 0;
@@ -90,6 +107,7 @@
   #r-size { color: var(--ink); }
 
   #dock {
+    z-index: 4;
     position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
     max-width: calc(100vw - 32px);
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px;
@@ -103,6 +121,7 @@
   .tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
   #status {
+    z-index: 2;
     position: absolute; left: 16px; right: 16px; bottom: 96px;
     display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px;
     font: 400 12px/1.4 var(--mono); color: var(--muted);
@@ -114,6 +133,7 @@
 
   /* History: closed until asked for, so the model keeps the window. */
   #history {
+    z-index: 3;
     position: absolute; left: 24px; top: 56px; width: 288px; max-width: calc(100vw - 32px);
     max-height: calc(100% - 56px - 112px);
     display: flex; flex-direction: column;
@@ -150,6 +170,7 @@
     #dock { bottom: 16px; padding: 8px; }
     #status { bottom: 124px; }
     #history { left: 16px; top: 48px; max-height: calc(100% - 48px - 150px); }
+    #steps-panel { inset: 48px 16px 120px; }
   }
 </style>
 </head>
@@ -159,8 +180,13 @@
   <h1>CadSkill</h1>
   <div id="readout" aria-live="polite"><div id="r-size">&nbsp;</div><div id="r-meta">&nbsp;</div></div>
   <div id="status"><span class="msg" id="msg">Waiting for a model</span></div>
-  <section id="history" aria-label="History" hidden>
-    <h2>History <span id="count"></span><button type="button" id="close-history" aria-label="Close history">×</button></h2>
+  <section id="steps-panel" aria-label="Build steps" hidden>
+    <header><h2>Build steps</h2><span id="steps-source"></span></header>
+    <p id="steps-message" role="status">Preparing build steps…</p>
+    <iframe id="steps-frame" title="Recorded build steps" sandbox="allow-scripts allow-same-origin allow-downloads" hidden></iframe>
+  </section>
+  <section id="history" aria-label="Revisions" hidden>
+    <h2>Revisions <span id="count"></span><button type="button" id="close-history" aria-label="Close revisions">×</button></h2>
     <ol id="versions"></ol>
   </section>
   <div id="dock">
@@ -168,7 +194,9 @@
     <span class="sep"></span>
     <div class="tools">
       <button type="button" id="back" hidden>Back to latest</button>
-      <button type="button" id="toggle-history" aria-pressed="false" aria-controls="history">History</button>
+      <button type="button" id="show-model" aria-pressed="true" hidden>Model</button>
+      <button type="button" id="toggle-history" aria-pressed="false" aria-controls="history">Revisions</button>
+      <button type="button" id="build-steps" aria-pressed="false" aria-controls="steps-panel" hidden disabled>Build steps</button>
     </div>
   </div>
 </main>

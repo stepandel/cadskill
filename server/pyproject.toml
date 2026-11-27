@@ -16,6 +16,9 @@ dependencies = [
   "mcp>=1.12,<2",
 ]
 
+[project.optional-dependencies]
+replay = ["jupyter-cadquery>=5.3,<6", "voila>=0.5.8,<0.6"]
+
 [project.urls]
 Homepage = "https://github.com/stepandel/cadskill"
 Source = "https://github.com/stepandel/cadskill"
