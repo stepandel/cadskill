@@ -9,8 +9,9 @@ let pick = () => {};      // (version) => void
 let versions = [];
 let failed = '';
 let mark = { latest: 0, shown: 0 };
+let opened = () => {};
 
-export function setupHistory(opts) { load = opts.load; pick = opts.pick; }
+export function setupHistory(opts) { load = opts.load; pick = opts.pick; opened = opts.opened || (() => {}); }
 
 // Re-reads the version list, if the panel is open (it is read again on opening).
 export async function refreshHistory() {
@@ -66,11 +67,11 @@ function render() {
   if (current && !panel.hidden) current.scrollIntoView({ block: 'nearest' });
 }
 
-function setOpen(open) {
+export function setHistoryOpen(open) {
   panel.hidden = !open;
   toggle.setAttribute('aria-pressed', String(open));
-  if (open) { render(); refreshHistory(); }
+  if (open) { opened(); render(); refreshHistory(); }
 }
-toggle.addEventListener('click', () => setOpen(panel.hidden));
-$('close-history').addEventListener('click', () => { setOpen(false); toggle.focus(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) setOpen(false); });
+toggle.addEventListener('click', () => setHistoryOpen(panel.hidden));
+$('close-history').addEventListener('click', () => { setHistoryOpen(false); toggle.focus(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panel.hidden) setHistoryOpen(false); });

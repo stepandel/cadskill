@@ -1,113 +1,80 @@
-// Page entry point: follows whichever model version the server last built,
-// and shows older versions picked from the history panel.
-// The page has no modelling controls; Claude changes the model through the
-// server's tools and this view follows.
+// Both revision and operation selection feed the same model canvas.
 import { $ } from './dom.js';
 import { view, setParts, select, fit } from './viewer.js';
 import { describe, setSourceName } from './readout.js';
 import { connect } from './host.js';
-import { setupHistory, refreshHistory, markHistory } from './history.js';
+import { setupHistory, refreshHistory, markHistory, setHistoryOpen } from './history.js';
+import { setupSteps, setStepsSource, setStepsOpen, markStep } from './steps.js';
 
 const msg = $('msg');
 function say(text, bad) { msg.textContent = text; msg.classList.toggle('bad', !!bad); msg.hidden = false; }
 describe();
 
 const params = new URLSearchParams(window.location.search);
-const selectedVersion = Number(params.get('version'));
-let requestedVersion = Number.isInteger(selectedVersion) && selectedVersion > 0 ? selectedVersion : null;
-const state = { model: null, latest: 0, shown: 0, mode: params.get('view') === 'steps' ? 'steps' : 'model' };
-let first = true;
-let ticket = 0;           // only the most recently asked-for version gets drawn
-let stepsTicket = 0;
-let stepsKey = '';
+const initialVersion = Number(params.get('version'));
+let requestedVersion = Number.isInteger(initialVersion) && initialVersion > 0 ? initialVersion : null;
+let openStepsInitially = params.get('view') === 'steps';
+const state = { model: null, latest: 0, shown: 0 };
+let fullModel = null, first = true, ticket = 0;
 
-function mode(name) {
-  state.mode = name;
-  $('main').dataset.mode = name;
-  $('steps-panel').hidden = name !== 'steps';
-  $('show-model').setAttribute('aria-pressed', String(name === 'model'));
-  $('build-steps').setAttribute('aria-pressed', String(name === 'steps'));
+function draw(data, refit = false) {
+  const selected = view.selected?.id;
+  const changed = setParts(data.parts);
+  setSourceName(data.model + ' · v' + data.version);
+  select(view.parts.find((p) => p.id === selected) || null);
+  if (first || changed || refit) fit();
+  first = false;
   msg.hidden = true;
 }
 
-function stepsMessage(text, bad = false) {
-  const message = $('steps-message');
-  message.textContent = text;
-  message.classList.toggle('bad', bad);
-  message.hidden = false;
-  $('steps-frame').hidden = true;
-}
-
-async function showSteps() {
-  if (!state.model || !state.shown) return;
-  const api = await ready;
-  // MCP hosts open the same CadSkill shell in their browser surface. Local
-  // browser views embed Replay; the host's MCP sandbox need not frame localhost.
-  if (!api.steps) {
-    try { await api.openSteps(state.model, state.shown); }
-    catch (e) { say(e.message || String(e), true); }
-    return;
-  }
-  mode('steps');
-  $('steps-source').textContent = state.model + ' · v' + state.shown;
-  const theme = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const key = state.model + '@' + state.shown + ':' + theme;
-  if (key === stepsKey) {
-    $('steps-message').hidden = true;
-    $('steps-frame').hidden = false;
-    return;
-  }
-  const mine = ++stepsTicket;
-  stepsMessage('Preparing build steps…');
-  try {
-    const data = await api.steps(state.model, state.shown);
-    if (mine !== stepsTicket || state.mode !== 'steps') return;
-    const url = new URL(data.url);
-    url.searchParams.set('embedded', '1');
-    url.searchParams.set('theme', theme);
-    $('steps-frame').title = 'Build steps — ' + data.model + ' · v' + data.version;
-    $('steps-frame').src = url.href;
-    stepsKey = key;
-    $('steps-message').hidden = true;
-    $('steps-frame').hidden = false;
-  } catch (e) {
-    if (mine === stepsTicket && state.mode === 'steps') stepsMessage(e.message || String(e), true);
-  }
-}
-
-function display({ model, version, parts }) {
-  const selId = view.selected && view.selected.id;
-  const changed = setParts(parts);
-  state.shown = version;
-  setSourceName(model + ' · v' + version);
-  select(view.parts.find((p) => p.id === selId) || null);   // also redraws the readout and dock label
-  msg.hidden = true;                                         // once a model is up, the readout carries the numbers
-  if (first || changed) fit();
-  first = false;
-  const older = version !== state.latest;
-  $('back').hidden = !older;
-  $('back').textContent = 'Back to v' + state.latest;
-  markHistory(state.latest, version);
-  $('build-steps').disabled = false;
-  if (state.mode === 'steps') showSteps();
+function finalModel() {
+  if (!fullModel) return;
+  ++ticket;
+  draw(fullModel, true);
+  markStep(null, null);
+  $('show-model').hidden = true;
 }
 
 async function show(version) {
   const mine = ++ticket;
+  const model = state.model;
   $('build-steps').disabled = true;
-  ++stepsTicket;
-  if (state.mode === 'steps') stepsMessage('Loading revision ' + version + '…');
+  $('show-model').hidden = true;
+  fullModel = null;
   try {
-    const data = await (await ready).mesh(state.model, version);
-    if (mine === ticket) display(data);
+    const data = await (await ready).mesh(model, version);
+    if (mine !== ticket) return;
+    fullModel = data;
+    state.shown = version;
+    draw(data);
+    $('back').hidden = version === state.latest;
+    $('back').textContent = 'Back to v' + state.latest;
+    markHistory(state.latest, version);
+    setStepsSource(model, version);
+    $('build-steps').disabled = false;
+    if (openStepsInitially) { openStepsInitially = false; setStepsOpen(true); }
   } catch (e) {
-    if (mine === ticket) say('Could not load the model: ' + (e && e.message ? e.message : e), true);
-    if (mine === ticket && state.mode === 'steps') stepsMessage('Could not load revision ' + version + '.', true);
+    if (mine === ticket) say('Could not load the model: ' + (e.message || e), true);
+  }
+}
+
+async function showStep(chain, step) {
+  if (!fullModel) return;
+  const mine = ++ticket;
+  say('Loading build step ' + (step + 1) + '…');
+  try {
+    const data = await (await ready).stepMesh(state.model, state.shown, chain, step);
+    if (mine !== ticket) return;
+    draw(data, true);
+    markStep(chain, step);
+    $('show-model').hidden = false;
+  } catch (e) {
+    if (mine === ticket) say(e.message || String(e), true);
   }
 }
 
 const ready = connect({
-  latest(model, version) {      // keep an explicitly selected revision in view
+  latest(model, version) {
     if (state.model && state.model !== model) requestedVersion = null;
     state.model = model; state.latest = version;
     show(requestedVersion || version);
@@ -118,18 +85,20 @@ const ready = connect({
 });
 
 setupHistory({
-  load: async () => (state.model ? (await ready).history(state.model) : { versions: [] }),
-  pick: (version) => { requestedVersion = version; if (state.model) show(version); },
+  load: async () => state.model ? (await ready).history(state.model) : { versions: [] },
+  pick: (version) => { requestedVersion = version; show(version); },
+  opened: () => setStepsOpen(false),
+});
+setupSteps({
+  load: async (model, version) => (await ready).steps(model, version),
+  pick: showStep,
+  final: finalModel,
+  opened: () => setHistoryOpen(false),
 });
 ready.then((api) => {
-  if (!api.history) $('toggle-history').hidden = true;
-  $('build-steps').hidden = !api.steps && !api.openSteps;
-  $('show-model').hidden = !api.steps;
-  if (!api.steps && !api.openSteps) mode('model');
+  $('toggle-history').hidden = !api.history;
+  $('build-steps').hidden = !api.steps;
+  if (!api.steps) { openStepsInitially = false; setStepsOpen(false); }
 });
 $('back').addEventListener('click', () => { requestedVersion = null; show(state.latest); });
-$('show-model').addEventListener('click', () => {
-  ++stepsTicket;
-  mode('model');
-});
-$('build-steps').addEventListener('click', showSteps);
+$('show-model').addEventListener('click', finalModel);

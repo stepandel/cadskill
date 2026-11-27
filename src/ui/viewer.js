@@ -43,24 +43,30 @@ function paint(p) {
 function applyTheme() {
   scene.background = new THREE.Color(css('--paper'));
   const edge = new THREE.Color(css('--ink'));
-  for (const p of view.parts) { p.lines.material.color.copy(edge); paint(p); }
+  for (const p of view.parts) { if (p.lines) p.lines.material.color.copy(edge); paint(p); }
   draw();
 }
 new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
-function dispose(p) { p.mesh.geometry.dispose(); p.mesh.material.dispose(); p.lines.geometry.dispose(); p.lines.material.dispose(); }
+function dispose(p) { p.mesh.geometry.dispose(); p.mesh.material.dispose(); if (p.lines) { p.lines.geometry.dispose(); p.lines.material.dispose(); } }
 
 function makePart(d) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(d.positions, 3));
-  g.setAttribute('normal', new THREE.BufferAttribute(d.normals, 3));
-  g.setIndex(new THREE.BufferAttribute(d.indices, 1));
   g.computeBoundingBox();
-  const base = d.color ? new THREE.Color().setRGB(d.color[0], d.color[1], d.color[2], THREE.SRGBColorSpace) : new THREE.Color(css('--model'));
-  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: base, metalness: 0.1, roughness: 0.62, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
-  const lines = new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), new THREE.LineBasicMaterial({ color: css('--ink'), transparent: true, opacity: 0.55 }));
-  mesh.add(lines);
+  const base = d.color ? new THREE.Color().setRGB(d.color[0], d.color[1], d.color[2], THREE.SRGBColorSpace)
+    : new THREE.Color(css(d.kind === 'curve' || d.kind === 'point' ? '--accent' : '--model'));
+  let mesh, lines = null;
+  if (d.kind === 'curve') mesh = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: base }));
+  else if (d.kind === 'point') mesh = new THREE.Points(g, new THREE.PointsMaterial({ color: base, size: 8, sizeAttenuation: false }));
+  else {
+    g.setAttribute('normal', new THREE.BufferAttribute(d.normals, 3));
+    g.setIndex(new THREE.BufferAttribute(d.indices, 1));
+    mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: base, metalness: 0.1, roughness: 0.62, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+    lines = new THREE.LineSegments(new THREE.EdgesGeometry(g, 28), new THREE.LineBasicMaterial({ color: css('--ink'), transparent: true, opacity: 0.55 }));
+    mesh.add(lines);
+  }
   const p = { id: d.id, key: d.key, mesh, lines, base, box: g.boundingBox };
   mesh.userData.part = p;
   return p;
@@ -78,7 +84,7 @@ export function setParts(list) {
   for (const d of list) {
     let p = old.get(d.key);
     if (p) old.delete(d.key); else if (d.positions) p = makePart(d); else continue;
-    Object.assign(p, { step: d.step, name: d.name, path: d.path, size: d.size, volume: d.volume, approx: d.approx, triangles: d.triangles });
+    Object.assign(p, { step: d.step, kind: d.kind, name: d.name, path: d.path, size: d.size, volume: d.volume, approx: d.approx, triangles: d.triangles });
     paint(p);
     model.add(p.mesh); next.push(p);
   }
@@ -119,7 +125,7 @@ export function fit() {
   const dir = camera.position.clone().sub(controls.target).normalize();
   const half = THREE.MathUtils.degToRad(camera.fov) / 2;                       // vertical half-angle
   const narrow = Math.min(half, Math.atan(Math.tan(half) * camera.aspect));   // the tighter of vertical and horizontal, so tall windows fit too
-  const dist = s.radius / Math.sin(narrow) * 1.08;
+  const dist = Math.max(s.radius, 0.5) / Math.sin(narrow) * 1.08;
   controls.target.copy(s.center);
   camera.position.copy(s.center).addScaledVector(dir, dist);
   camera.near = Math.max(dist / 500, 0.01); camera.far = dist * 20; camera.updateProjectionMatrix();

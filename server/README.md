@@ -37,8 +37,9 @@ The live viewer has **Revisions** for saved designs and **Build steps** for
 upstream Jupyter CadQuery Replay. Install the optional tools with
 `uv tool install --force 'cadskill[replay]'`, then restart CadSkill. Use
 `cadskill replay MODEL --version N --no-open` for an in-app preview URL.
-The URL opens the CadSkill page with Replay embedded in Build steps; Model
-and Revisions stay available in the same navigation.
+The URL opens the CadSkill Build steps panel, styled like Revisions.
+Selecting a step draws its geometry in the main canvas. Final model restores
+the complete saved design. No notebook viewer service is started.
 Replay inspects supported Workplane/Sketch chains; direct solids and STEP
 imports do not provide their original feature history. Feature changes are
 made by editing the Python recipe and rebuilding.

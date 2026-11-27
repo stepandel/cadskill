@@ -16,8 +16,7 @@ function bytes(b64) {
 // The server sends each mesh as base64 text; the viewer wants typed arrays.
 function decode(data) {
   return {
-    model: data.model,
-    version: data.version,
+    ...data,
     parts: data.parts.map((p) => ({
       ...p,
       path: [],
@@ -61,17 +60,12 @@ export async function connect(handlers) {
     const api = {
       mesh: async (model, version) => decode(await call('get_mesh', { model, version })),
       history: (model) => call('get_history', { model }),
-      openSteps: async (model, version) => {
-        const res = await app.callServerTool({ name: 'open_build_steps', arguments: { model, version } });
-        if (res.isError || !res.structuredContent?.url) {
-          throw new Error(res.content?.find((c) => c.type === 'text')?.text || 'Could not open build steps.');
-        }
-        await app.openLink({ url: res.structuredContent.url });
-      },
+      steps: (model, version) => call('get_build_steps', { model, version }),
+      stepMesh: async (model, version, chain, step) => decode(await call('get_step_mesh', { model, version, chain, step })),
     };
     app.ontoolresult = (result) => {
       const built = result.structuredContent;
-      if (built && built.model) follow(built.model, built.version);
+      if (built && built.model && !built.url) follow(built.model, built.version);
       else if (result.isError) handlers.status('That change failed; the model is unchanged.', true);
     };
     app.onhostcontextchanged = (ctx) => { if (ctx && ctx.theme) handlers.theme(ctx.theme); };
@@ -92,6 +86,7 @@ export async function connect(handlers) {
     mesh: async (model, version) => decode(await get('./mesh?model=' + encodeURIComponent(model) + '&version=' + version)),
     history: (model) => get('./history?model=' + encodeURIComponent(model)),
     steps: (model, version) => get('./build-steps?model=' + encodeURIComponent(model) + '&version=' + version),
+    stepMesh: async (model, version, chain, step) => decode(await get('./step-mesh?model=' + encodeURIComponent(model) + '&version=' + version + '&chain=' + chain + '&step=' + step)),
   };
   const model = new URLSearchParams(window.location.search).get('model');
   const statePath = './state' + (model ? '?model=' + encodeURIComponent(model) : '');

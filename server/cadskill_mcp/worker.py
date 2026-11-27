@@ -97,13 +97,16 @@ def _error_report(exc: BaseException, code: str) -> dict:
     }
 
 
-def _execute(code: str, model_dir: str) -> dict:
+def _execute(code: str, model_dir: str, keep_objects: bool = False) -> dict:
     """Run the script. Returns {'parts': [...], 'stdout': str} or {'error': {...}, 'stdout': str}."""
     import cadquery as cq
 
     shown: list[tuple] = []
+    objects = []
 
     def show_object(obj, name=None, options=None, **_):
+        if keep_objects:
+            objects.append((obj, name, options))
         for shape, own_name, own_color in _shapes_of(obj):
             shown.append((shape, name or own_name, _color(options) or own_color))
 
@@ -139,7 +142,10 @@ def _execute(code: str, model_dir: str) -> dict:
             name, n = f"{base}-{n}", n + 1
         used.add(name)
         parts.append({"name": name, "shape": shape, "color": color})
-    return {"parts": parts, "stdout": out.getvalue()[-MAX_OUTPUT:]}
+    result = {"parts": parts, "stdout": out.getvalue()[-MAX_OUTPUT:]}
+    if keep_objects:
+        result.update(shown=objects, env=env)
+    return result
 
 
 def _load(code: str, model_dir: str) -> list[dict]:
@@ -409,18 +415,50 @@ def _mesh(shape, tolerance=MESH_TOLERANCE):
 
 
 def op_mesh(code: str, model_dir: str) -> dict:
-    import base64
+    key = _key(code, model_dir)[:12]
+    return {"parts": [_viewer_part(p, p["name"], f"{key}-{i}")
+                      for i, p in enumerate(_load(code, model_dir))]}
 
-    key = hashlib.sha256(code.encode()).hexdigest()[:12]
-    out = []
-    for i, p in enumerate(_load(code, model_dir)):
-        v, n, t = _mesh(p["shape"])
-        info = _summary(p)
-        b64 = lambda a: base64.b64encode(a.tobytes()).decode()  # noqa: E731
-        out.append({"id": p["name"], "key": f"{key}-{i}", "name": p["name"], "color": info.get("color"),
-                    "size": info["size"], "volume": info.get("volume"), "triangles": int(len(t)),
-                    "positions": b64(v), "normals": b64(n), "indices": b64(t)})
-    return {"parts": out}
+
+def _viewer_part(part: dict, identity: str, key: str, primitives: bool = False) -> dict:
+    import base64
+    import numpy as np
+
+    shape = part["shape"]
+    v, n, t = _mesh(shape)
+    kind = "surface"
+    if primitives and not len(t):
+        from OCP.BRepAdaptor import BRepAdaptor_Curve
+        from OCP.GCPnts import GCPnts_QuasiUniformDeflection
+        segments = []
+        for edge in shape.Edges():
+            curve = BRepAdaptor_Curve(edge.wrapped)
+            sample = GCPnts_QuasiUniformDeflection(curve, MESH_TOLERANCE)
+            if sample.IsDone():
+                for i in range(1, sample.NbPoints()):
+                    segments.extend([sample.Value(i).Coord(), sample.Value(i + 1).Coord()])
+        if segments:
+            v, kind = np.array(segments, dtype=np.float32), "curve"
+        else:
+            v = np.array([vertex.Center().toTuple() for vertex in shape.Vertices()], dtype=np.float32)
+            kind = "point"
+        if not len(v):
+            raise ModelError("This step has no displayable geometry. Choose another step or Final model.")
+    info = _summary(part)
+    b64 = lambda a: base64.b64encode(a.tobytes()).decode()  # noqa: E731
+    return {"id": identity, "key": key, "name": part["name"], "color": info.get("color"), "kind": kind,
+            "size": info["size"], "volume": info.get("volume") if info["solids"] else None,
+            "triangles": int(len(t)), "positions": b64(v), "normals": b64(n), "indices": b64(t)}
+
+
+def op_build_steps(code: str, model_dir: str) -> dict:
+    from .replay import list_steps
+    return list_steps(code, model_dir)
+
+
+def op_step_mesh(code: str, model_dir: str, chain: int, step: int) -> dict:
+    from .replay import step_mesh
+    return step_mesh(code, model_dir, chain, step)
 
 
 # ---------------------------------------------------------------- pictures
@@ -631,7 +669,8 @@ def op_export(code: str, model_dir: str, fmt: str, path: str, names: list[str] |
 
 # ---------------------------------------------------------------- request loop
 
-OPS = {"run": op_run, "inspect": op_inspect, "measure": op_measure, "mesh": op_mesh, "render": op_render, "export": op_export}
+OPS = {"run": op_run, "inspect": op_inspect, "measure": op_measure, "mesh": op_mesh, "render": op_render, "export": op_export,
+       "build_steps": op_build_steps, "step_mesh": op_step_mesh}
 
 
 def serve(conn) -> None:

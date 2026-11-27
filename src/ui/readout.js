@@ -16,7 +16,8 @@ export function describe() {
   const size = modelSize();
   if (p) {
     $('r-size').textContent = p.size ? dims(p.size) : ' ';
-    $('r-meta').textContent = (p.volume ? volume(p) + '  ·  ' : '') + p.triangles.toLocaleString() + ' triangles';
+    $('r-meta').textContent = p.kind === 'curve' ? 'Sketch edges' : p.kind === 'point' ? 'Construction points'
+      : (p.volume ? volume(p) + '  ·  ' : '') + p.triangles.toLocaleString() + ' triangles';
     $('name').textContent = p.name; $('name').title = (p.path.length ? p.path.join(' / ') + ' / ' : '') + p.name;
     $('chip').style.background = '#' + p.base.getHexString();
   } else {

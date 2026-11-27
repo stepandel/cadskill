@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from .runner import DEFAULT_TIMEOUT, Problem, Runner, Starting
 from .store import Store, clean
-from .replay import ReplayServer
+from .replay import require as require_replay
 
 VIEWER_URI = "ui://cadskill/viewer.html"
 VIEWER_FILE = Path(__file__).parent / "static" / "viewer.html"
@@ -67,7 +67,7 @@ store = Store()
 runner = Runner(start_wait=25)   # a call made while the kernel is still starting answers within 25 s
 _shown = {"model": None, "version": 0}       # what the viewer should be displaying
 _mesh_cache: dict[tuple[str, int], dict] = {}
-replay_server = ReplayServer()
+replay_runner = Runner(start_wait=25)
 
 
 # ---------------------------------------------------------------- helpers
@@ -416,6 +416,26 @@ def get_history(model: str) -> CallToolResult:
     return CallToolResult(content=[TextContent(type="text", text=json.dumps(_history(model)))])
 
 
+@mcp.tool(meta=APP_ONLY, structured_output=False)
+async def get_build_steps(model: str, version: int) -> CallToolResult:
+    """Recorded operations for the viewer's Build steps panel."""
+    try:
+        data = await anyio.to_thread.run_sync(_build_steps, model, version)
+        return _text(json.dumps(data))
+    except Problem as exc:
+        return _text(str(exc), error=True)
+
+
+@mcp.tool(meta=APP_ONLY, structured_output=False)
+async def get_step_mesh(model: str, version: int, chain: int, step: int) -> CallToolResult:
+    """Geometry of a recorded operation for the existing model canvas."""
+    try:
+        data = await anyio.to_thread.run_sync(_step_for, model, version, chain, step)
+        return _text(json.dumps(data))
+    except Problem as exc:
+        return _text(str(exc), error=True)
+
+
 def _viewer_html() -> str:
     if VIEWER_FILE.exists():
         return VIEWER_FILE.read_text()
@@ -478,6 +498,10 @@ class _Page(BaseHTTPRequestHandler):
                 q = parse_qs(url.query)
                 data = _build_steps(q["model"][0], int(q["version"][0]))
                 self._send(200, "application/json", json.dumps(data).encode())
+            elif url.path == "/step-mesh":
+                q = parse_qs(url.query)
+                data = _step_for(q["model"][0], int(q["version"][0]), int(q["chain"][0]), int(q["step"][0]))
+                self._send(200, "application/json", json.dumps(data).encode())
             else:
                 self._send(404, "text/plain", b"Not found")
         except (Problem, KeyError, ValueError) as exc:
@@ -525,16 +549,29 @@ def open_viewer(model: Model | None = None) -> CallToolResult:
         return _text(str(exc), error=True)
 
 
-def _build_steps(model: str, version: int | None = None) -> dict:
+def _step_source(model: str, version: int | None = None) -> tuple:
     model = clean(model)
     _require(model)
     revision = store.version(model) if version is None else version
     try:
-        back = start_viewer_page() + "?" + urlencode({"model": model})
-        url = replay_server.open(store, model, revision, back)
-    except (KeyError, ValueError) as exc:
-        raise Problem(str(exc)) from exc
-    return {"url": url, "model": model, "version": revision}
+        code = store.code(model, revision)
+    except KeyError as exc:
+        raise Problem(f"Model '{model}' has no revision {revision}.") from exc
+    directory = _context(model, revision)
+    require_replay()
+    return model, revision, code, directory
+
+
+def _build_steps(model: str, version: int) -> dict:
+    model, revision, code, directory = _step_source(model, version)
+    data = replay_runner.call("build_steps", code=code, model_dir=directory)
+    return {"model": model, "version": revision, **data}
+
+
+def _step_for(model: str, version: int, chain: int, step: int) -> dict:
+    model, revision, code, directory = _step_source(model, version)
+    data = replay_runner.call("step_mesh", code=code, model_dir=directory, chain=chain, step=step)
+    return {"model": model, "version": revision, **data}
 
 
 @mcp.tool()
@@ -547,12 +584,12 @@ def open_build_steps(model: Model = "default", version: int | None = None) -> Ca
     and rebuild; to restore the whole design, use restore_version.
     """
     try:
-        data = _build_steps(model, version)
-        data["url"] = start_viewer_page() + "?" + urlencode({
-            "model": data["model"], "version": data["version"], "view": "steps"})
+        model, revision, _, _ = _step_source(model, version)
+        data = {"model": model, "version": revision, "url": start_viewer_page() + "?" + urlencode({
+            "model": model, "version": revision, "view": "steps"})}
         return _text(f"Build steps for '{data['model']}' version {data['version']}: {data['url']}\n"
-                     "Open this URL in the host's browser panel. Replay is embedded in the CadSkill viewer; "
-                     "use Model or Revisions to switch views.",
+                     "Open this URL in the host's browser panel. Build steps opens beside the existing canvas; "
+                     "select an operation to inspect it, or Final model to return to the complete model.",
                      structuredContent=data)
     except Problem as exc:
         return _text(str(exc), error=True)
@@ -569,7 +606,7 @@ def main() -> None:
     try:
         mcp.run()
     finally:
-        replay_server.stop()
+        replay_runner.stop()
         runner.stop()
 
 

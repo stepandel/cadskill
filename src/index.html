@@ -76,23 +76,6 @@
   main { position: fixed; inset: 0; }
   #stage { position: absolute; inset: 0; }
   #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-  main[data-mode="steps"] #stage { visibility: hidden; }
-  main[data-mode="steps"] #readout { display: none; }
-
-  #steps-panel {
-    position: absolute; inset: 56px 24px 92px; z-index: 1;
-    display: flex; flex-direction: column; overflow: hidden;
-    background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
-  }
-  #steps-panel header {
-    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px;
-    padding: 12px 16px; border-bottom: 1px solid var(--rule);
-  }
-  #steps-panel h2 { margin: 0; font: 600 14px/1.3 var(--body); }
-  #steps-source { color: var(--muted); font: 400 12px/1.4 var(--mono); overflow-wrap: anywhere; }
-  #steps-message { padding: 16px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-  #steps-message.bad { color: var(--bad); }
-  #steps-frame { width: 100%; flex: 1; min-height: 0; border: 0; background: var(--panel); }
 
   h1 {
     position: absolute; left: 24px; top: 24px; margin: 0;
@@ -132,22 +115,28 @@
   [hidden] { display: none !important; }
 
   /* History: closed until asked for, so the model keeps the window. */
-  #history {
+  #history, #steps-panel {
     z-index: 3;
     position: absolute; left: 24px; top: 56px; width: 288px; max-width: calc(100vw - 32px);
     max-height: calc(100% - 56px - 112px);
     display: flex; flex-direction: column;
     background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
   }
-  #history h2 {
+  #history h2, #steps-panel h2 {
     display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 8px 8px 16px;
     font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
     border-bottom: 1px solid var(--rule);
   }
-  #count { font: 400 12px/1 var(--mono); letter-spacing: 0; flex: 1; }
-  #close-history { border-color: transparent; color: var(--muted); padding: 6px 8px; font-size: 15px; }
-  #close-history:hover { color: var(--ink); border-color: var(--rule); }
-  #versions { list-style: none; margin: 0; padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  #count, #step-count { font: 400 12px/1 var(--mono); letter-spacing: 0; flex: 1; }
+  #close-history, #close-steps { border-color: transparent; color: var(--muted); padding: 6px 8px; font-size: 15px; }
+  #close-history:hover, #close-steps:hover { color: var(--ink); border-color: var(--rule); }
+  #versions, #steps-list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+  #steps-source { padding: 10px 16px 0; font: 400 11px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+  #steps-shape-label { padding: 10px 16px; display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+  #steps-shape { width: 100%; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 5px; }
+  #steps-message { margin: 0; padding: 10px 16px; font-size: 12px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+  #steps-message.bad { color: var(--bad); }
+  .build-step { font: 400 11px/1.5 var(--mono); overflow-wrap: anywhere; }
   .hint { color: var(--muted); font-size: 13px; padding: 8px; }
   .ver {
     display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%;
@@ -169,8 +158,7 @@
     .sep { display: none; }
     #dock { bottom: 16px; padding: 8px; }
     #status { bottom: 124px; }
-    #history { left: 16px; top: 48px; max-height: calc(100% - 48px - 150px); }
-    #steps-panel { inset: 48px 16px 120px; }
+    #history, #steps-panel { left: 16px; top: 48px; max-height: calc(100% - 48px - 150px); }
   }
 </style>
 </head>
@@ -181,9 +169,11 @@
   <div id="readout" aria-live="polite"><div id="r-size">&nbsp;</div><div id="r-meta">&nbsp;</div></div>
   <div id="status"><span class="msg" id="msg">Waiting for a model</span></div>
   <section id="steps-panel" aria-label="Build steps" hidden>
-    <header><h2>Build steps</h2><span id="steps-source"></span></header>
-    <p id="steps-message" role="status">Preparing build steps…</p>
-    <iframe id="steps-frame" title="Recorded build steps" sandbox="allow-scripts allow-same-origin allow-downloads" hidden></iframe>
+    <h2>Build steps <span id="step-count"></span><button type="button" id="close-steps" aria-label="Close build steps">×</button></h2>
+    <div id="steps-source"></div>
+    <label id="steps-shape-label" hidden>Shape<select id="steps-shape"></select></label>
+    <p id="steps-message" role="status" hidden></p>
+    <ol id="steps-list"></ol>
   </section>
   <section id="history" aria-label="Revisions" hidden>
     <h2>Revisions <span id="count"></span><button type="button" id="close-history" aria-label="Close revisions">×</button></h2>
@@ -194,7 +184,7 @@
     <span class="sep"></span>
     <div class="tools">
       <button type="button" id="back" hidden>Back to latest</button>
-      <button type="button" id="show-model" aria-pressed="true" hidden>Model</button>
+      <button type="button" id="show-model" hidden>Final model</button>
       <button type="button" id="toggle-history" aria-pressed="false" aria-controls="history">Revisions</button>
       <button type="button" id="build-steps" aria-pressed="false" aria-controls="steps-panel" hidden disabled>Build steps</button>
     </div>

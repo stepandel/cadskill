@@ -243,13 +243,13 @@ rendered PNGs in the chat.
 `cadskill run bracket_v2.py --model bracket --note "Longer mounting slots"`
 to append to the existing model's history rather than creating a new model.
 
-**Build-step inspection.** Install the optional upstream notebook tools with
+**Build-step inspection.** Install the optional upstream recording library with
 `uv tool install --force 'cadskill[replay]'` (development: `uv sync --project server --extra replay`).
 Restart CadSkill after changing its installed dependencies. The live viewer's
-**Build steps** button embeds Replay for the revision being viewed, keeping
-the CadSkill header, revision picker and **Model** control on the same page.
-Switching back to Model preserves its camera; returning to the same Build
-steps view preserves its selection. Agents can use
+**Build steps** button opens a floating panel like Revisions. Selecting an
+operation draws its geometry in the existing model canvas; **Final model**
+restores the complete saved design. Sketch points, curves and solid stages
+use that same canvas, controls and readout. Agents can use
 `cadskill replay MODEL --version N --no-open` or the MCP `open_build_steps`
 tool and open the returned CadSkill URL inside the host app. A version in
 this link selects that saved revision, with Build steps already open.
@@ -257,13 +257,14 @@ Bare `cadskill replay`
 opens the system browser, like `cadskill view`.
 
 This reuses [Jupyter CadQuery Replay](https://bernhard-42.github.io/ocp_viewer_docs/viewers/jupyter_cadquery/replay/)
-and [Voilà](https://voila.readthedocs.io), with a local Jupyter Server and the
-upstream CAD widget. It records Workplane/Sketch chains when rebuilding the
-saved script. Direct solid operations and imported STEP parts do not supply
-their original feature history; scripts retaining no replayable chain show
-their final geometry with an explanation. Normal installs do not need these
-notebook dependencies. The Replay server binds to loopback with token
-authentication, culls idle kernels, and stops with CadSkill.
+for recording and formatting Workplane/Sketch chains. A small adapter uses
+its recorded CAD objects with CadSkill's existing meshing and viewer code.
+The tested upstream API is bounded to version 5.3. Recording runs in a
+dedicated worker, without launching notebook kernels, a second viewer, or
+a viewer service. Direct solid operations and imported STEP parts do not
+supply their original feature history. Partial histories are labeled, and
+scripts retaining no replayable chain keep their final geometry available.
+Normal installs do not need the optional recording library.
 
 **Rebuilding a revision.** New saves include copies of imported assets and
 an `environment.json` recording Python, CadQuery and the CAD kernel package.
@@ -471,9 +472,11 @@ name and version; the viewer then asks for that version's meshes through
 Claude's context. The Revisions button in the viewer lists every saved version
 (`get_history` or `/history`); picking one shows it without changing the
 model, which stays at its latest version until the assistant restores another.
-Optional Replay runs in a separate notebook kernel so its recording hooks
+Optional Replay runs in a separate CAD worker so its recording hooks
 never affect the normal CAD worker. Shapes are cached by source and input
 context, keeping imported geometry from different revisions separate.
+`get_build_steps` / `/build-steps` provide the recorded operation list;
+`get_step_mesh` / `/step-mesh` provide the selected operation's geometry.
 
 ## History
 

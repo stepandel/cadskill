@@ -141,8 +141,8 @@ only use their remaining imported files.
 **Build steps** inspect a single revision using upstream Jupyter CadQuery
 Replay. Use `cadskill replay MODEL --version N --no-open` and open its returned
 URL in the same in-app browser surface described above. The viewer's Build
-steps button embeds Replay for the revision currently being viewed; Model
-and Revisions stay in the same CadSkill page. The returned command URL also
+steps button opens a panel like Revisions. Selected operations use the same
+model canvas; Final model returns to the complete design. The returned command URL also
 opens that page with Build steps selected. If the optional
 components are missing, the command provides their installation instructions.
 Replay supports recorded Workplane/Sketch chains; direct solids and imported
