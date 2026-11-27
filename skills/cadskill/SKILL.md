@@ -39,6 +39,15 @@ make the same call again. Do not rewrite the script or give up.
 - Units are millimetres. Z is up.
 - Put every dimension in a named constant at the top, and derive the rest
   from them. A later "make it 10 mm longer" is then a one-line edit.
+- For new parts, keep builders and cutting tools as Workplane/Sketch chains.
+  Use Workplane `union`, `cut`, and `intersect`, and add the finished
+  Workplanes directly to the assembly. Early `.val()` extraction followed
+  by raw Shape operations disconnects Replay history.
+- Retain the preceding Workplane when a raw-shape API is necessary, and
+  explain the coverage limit. `Workplane(obj=finished_shape)` cannot recover
+  earlier steps. For a requested history refactor, compare a copy's valid
+  solids, bounds, volume and bidirectional geometry differences, then save
+  a new revision under the same model name.
 - Call `show_object(part, name="lid", options={"color": "steelblue"})` once
   per part. Names are how the other tools refer to parts, so make them
   meaningful and keep them stable between versions.
@@ -123,12 +132,14 @@ For operation inspection, call `open_build_steps(model=..., version=...)`
 and open its returned URL in the host's in-app browser. It uses upstream
 Jupyter CadQuery Replay and requires the optional `cadskill[replay]` install.
 The URL opens the Build steps panel beside the existing model canvas, like
-Revisions. Selecting an operation changes that canvas; Final model restores
-the complete design. The tool explains how to install
+Revisions. Assembly is the default overview for multiple parts; select a part
+to inspect its recorded steps with the other parts faded for context. Assembly
+(Final model for one part) restores the complete design. Assembly placement
+and constraints are not recorded operations. The tool explains how to install
 the optional components when missing. Replay records Workplane
 and Sketch chains, so direct solids and imported STEP parts may show final
 geometry without recorded steps. Do not promise a complete feature tree or
-rewrite a working model solely to suit Replay.
+refactor an existing design for history without checking its geometry.
 
 For "remove the holes but keep the longer pins", use `edit_model` on the
 current recipe and rebuild. Use named intermediate variables and ordinary

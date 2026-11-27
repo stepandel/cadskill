@@ -12,7 +12,8 @@ let sourceName = 'Model';
 export function setSourceName(name) { sourceName = name; }
 
 export function describe() {
-  const p = view.selected || (view.parts.length === 1 ? view.parts[0] : null);
+  const active = view.parts.filter((p) => !p.context);
+  const p = view.selected || (active.length === 1 ? active[0] : null);
   const size = modelSize();
   if (p) {
     $('r-size').textContent = p.size ? dims(p.size) : ' ';

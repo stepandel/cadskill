@@ -1,6 +1,6 @@
 [project]
 name = "cadskill"
-version = "0.1.2"
+version = "0.1.3"
 description = "3D CAD for Claude and Codex: build, inspect and export solid models by writing CadQuery scripts."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

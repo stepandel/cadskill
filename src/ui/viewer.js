@@ -38,7 +38,12 @@ function resize() {
 new ResizeObserver(resize).observe(stage);
 
 function paint(p) {
-  p.mesh.material.color.copy(p === view.selected ? new THREE.Color(css('--accent')) : p.base);
+  p.mesh.material.color.copy(p === view.selected && !p.context ? new THREE.Color(css('--accent')) : p.base);
+  const material = p.mesh.material;
+  if (material.transparent !== p.context) { material.transparent = p.context; material.needsUpdate = true; }
+  material.opacity = p.context ? 0.18 : 1;
+  material.depthWrite = !p.context;
+  if (p.lines) { p.lines.material.opacity = p.context ? 0.12 : 0.55; p.lines.material.depthWrite = !p.context; }
 }
 function applyTheme() {
   scene.background = new THREE.Color(css('--paper'));
@@ -84,7 +89,7 @@ export function setParts(list) {
   for (const d of list) {
     let p = old.get(d.key);
     if (p) old.delete(d.key); else if (d.positions) p = makePart(d); else continue;
-    Object.assign(p, { step: d.step, kind: d.kind, name: d.name, path: d.path, size: d.size, volume: d.volume, approx: d.approx, triangles: d.triangles });
+    Object.assign(p, { context: !!d.context, step: d.step, kind: d.kind, name: d.name, path: d.path, size: d.size, volume: d.volume, approx: d.approx, triangles: d.triangles });
     paint(p);
     model.add(p.mesh); next.push(p);
   }
@@ -98,6 +103,7 @@ const selectListeners = [];
 export function onSelect(fn) { selectListeners.push(fn); }     // fn(part or null)
 
 export function select(p) {
+  if (p?.context) p = null;
   const prev = view.selected; view.selected = p;
   if (prev) paint(prev);
   if (p) paint(p);
@@ -140,7 +146,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
   const r = renderer.domElement.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
-  const hit = ray.intersectObjects(view.parts.map((p) => p.mesh), false)[0];
+  const hit = ray.intersectObjects(view.parts.filter((p) => !p.context).map((p) => p.mesh), false)[0];
   select(hit ? hit.object.userData.part : null);
 });
 

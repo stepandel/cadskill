@@ -50,7 +50,7 @@ export async function connect(handlers) {
   }
 
   if (window.parent !== window) {
-    const app = new App({ name: 'CadSkill viewer', version: '0.1.2' });
+    const app = new App({ name: 'CadSkill viewer', version: '0.1.3' });
     const call = async (name, args) => {
       const res = await app.callServerTool({ name, arguments: args });
       const text = res.content && res.content.find((c) => c.type === 'text');

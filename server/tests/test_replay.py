@@ -87,11 +87,73 @@ def test_assembly_steps_keep_world_placement(recorder, tmp_path):
     assert min(x) == 39 and max(x) == 41
 
 
+def test_repeated_nested_parts_map_to_final_ids_and_placements(recorder, tmp_path):
+    code = '''part = cq.Workplane().box(2, 3, 4)
+left = cq.Assembly(name='left', loc=cq.Location((10, 0, 0)))
+left.add(part, name='lid', loc=cq.Location((2, 0, 0)))
+right = cq.Assembly(name='right', loc=cq.Location((20, 10, 0)))
+right.add(part, name='lid', loc=cq.Location((0, 0, 0), (0, 0, 1), 90))
+model = cq.Assembly(name='model', loc=cq.Location((40, 0, 0)))
+model.add(left)
+model.add(right)
+model.add(cq.Solid.makeBox(1, 1, 1), name='imported')
+show_object(model, name='piece', options={'color': 'red'})
+show_object([part])
+'''
+    args = {"code": code, "model_dir": str(tmp_path)}
+    full = {p['name']: p for p in recorder.call('run', **args)['parts']}
+    history = recorder.call('build_steps', **args)
+    assert set(full) == {'piece', 'piece-2', 'piece-3', 'part4'}
+    assert {c['part_id'] for c in history['chains']} == {'piece', 'piece-2', 'part4'}
+    for chain in history['chains']:
+        response = recorder.call('step_mesh', **args, chain=chain['id'], step=chain['steps'][-1]['index'])
+        assert response['part_id'] == chain['part_id']
+        final, expected = response['parts'][0], full[chain['part_id']]
+        values = base64.b64decode(final['positions'])
+        positions = struct.unpack(f'{len(values) // 4}f', values)
+        assert [min(positions[axis::3]) for axis in range(3)] == pytest.approx(expected['min'])
+        assert [max(positions[axis::3]) for axis in range(3)] == pytest.approx(expected['max'])
+        assert final['volume'] == expected['volume']
+        assert final['color'] == expected.get('color')
+
+
+def test_helper_and_cutter_chains_reach_finished_assembly_parts(recorder, tmp_path):
+    code = '''def cylinder(radius, length, start):
+    return cq.Workplane('XY', origin=start).circle(radius).extrude(length)
+fork = cq.Workplane().box(30, 20, 6).cut(cylinder(2, 20, (-8, 0, -10)))
+tip = (cq.Workplane().box(12, 10, 4)
+       .union(cylinder(2, 1.7, (3, 0, 2)))
+       .union(cq.Workplane('XY', origin=(3, 0, 3.7)).circle(2)
+              .workplane(offset=0.4).circle(1.6).loft(ruled=True)))
+model = cq.Assembly()
+model.add(fork, name='fork')
+model.add(tip, name='tip', loc=cq.Location((40, 0, 0)))
+show_object(model)
+'''
+    args = {"code": code, "model_dir": str(tmp_path)}
+    full = {p['name']: p for p in recorder.call('run', **args)['parts']}
+    history = recorder.call('build_steps', **args)
+    assert not history['partial'] and {c['name'] for c in history['chains']} == {'fork', 'tip'}
+    for chain in history['chains']:
+        labels = [s['label'].lstrip('| ') for s in chain['steps']]
+        assert any(label.startswith('circle(') for label in labels)
+        assert any(label.startswith('cut(' if chain['name'] == 'fork' else 'union(') for label in labels)
+        if chain['name'] == 'tip':
+            assert any(label.startswith('loft(') for label in labels)
+        final = recorder.call('step_mesh', **args, chain=chain['id'], step=chain['steps'][-1]['index'])['parts'][0]
+        assert final['kind'] == 'surface'
+        assert final['volume'] == pytest.approx(full[chain['name']]['volume'], abs=0.001)
+        assert full[chain['name']]['valid'] and full[chain['name']]['solids'] == 1
+
+
 def test_partial_history_and_failed_recording_do_not_change_normal_builds(recorder, tmp_path):
     args = {"model_dir": str(tmp_path)}
     partial = "outline = cq.Workplane().box(5, 4, 3)\nresult = outline.val().cut(cq.Solid.makeCylinder(1, 10))\nshow_object(result)"
     data = recorder.call("build_steps", code=partial, **args)
     assert data["partial"] and data["chains"][0]["name"] == "outline"
+    assert data["chains"][0]["part_id"] is None
+    retained = recorder.call("step_mesh", code=partial, chain=0, step=0, **args)
+    assert retained["part_id"] is None
     assert recorder.call("build_steps", code="show_object(cq.Solid.makeBox(2, 3, 4))", **args)["chains"] == []
     with pytest.raises(Problem, match="Cannot record"):
         recorder.call("build_steps", code="raise ValueError('broken')", **args)

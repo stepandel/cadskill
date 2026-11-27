@@ -55,28 +55,22 @@ def record(code: str, model_dir: str) -> dict:
                 error = result["error"]
                 raise worker.ModelError(f"Cannot record build steps: {error['message']} (line {error['line']}).")
             candidates = []
-            for obj, name, options in result["shown"]:
+            # Use the same flattening and unique IDs as the final model. Names
+            # alone cannot identify repeated parts in nested assemblies.
+            for part in result["parts"]:
+                obj = part["source"]
                 if isinstance(obj, (cq.Workplane, cq.Sketch)):
-                    candidates.append((name or "part", obj, None, worker._color(options)))
-                elif isinstance(obj, cq.Assembly):
-                    for path, node in obj.traverse():
-                        if not isinstance(node.obj, (cq.Workplane, cq.Sketch)):
-                            continue
-                        location, parent = node.loc, node.parent
-                        while parent is not None:
-                            location = parent.loc * location
-                            parent = parent.parent
-                        color = node.color.toTuple()[:3] if node.color is not None else None
-                        candidates.append((path, node.obj, location, color))
+                    candidates.append((part["name"], obj, part["location"], part["color"], part["name"]))
             partial = not candidates
             if partial:
-                candidates = [(name, obj, None, None) for name, obj in result["env"].items()
+                candidates = [(name, obj, None, None, None) for name, obj in result["env"].items()
                               if not name.startswith("_") and isinstance(obj, (cq.Workplane, cq.Sketch))]
             adapter, chains = Chain(), []
-            for name, obj, location, color in candidates:
+            for name, obj, location, color, part_id in candidates:
                 entries = adapter.format_steps(adapter.to_array(obj, result_name=getattr(obj, "name", "")))
                 if entries:
-                    chains.append({"name": name, "entries": entries, "location": location, "color": color})
+                    chains.append({"name": name, "entries": entries, "location": location,
+                                   "color": color, "part_id": part_id})
         finally:
             try:
                 disable_replay()
@@ -95,7 +89,7 @@ def record(code: str, model_dir: str) -> dict:
 def list_steps(code: str, model_dir: str) -> dict:
     recorded = record(code, model_dir)
     return {"partial": recorded["partial"], "chains": [
-        {"id": i, "name": chain["name"], "steps": [
+        {"id": i, "name": chain["name"], "part_id": chain["part_id"], "steps": [
             {"index": n, "label": label} for n, (label, _) in enumerate(chain["entries"])]}
         for i, chain in enumerate(recorded["chains"])]}
 
@@ -126,4 +120,4 @@ def step_mesh(code: str, model_dir: str, chain: int, step: int) -> dict:
     part = {"shape": shape, "name": selected["name"], "color": selected["color"]}
     data = worker._viewer_part(part, f"step-{chain}", f"{recorded['key'][:12]}-{chain}-{step}", primitives=True)
     data["name"] += f" · step {step + 1}"
-    return {"chain": chain, "step": step, "label": label, "parts": [data]}
+    return {"chain": chain, "step": step, "label": label, "part_id": selected["part_id"], "parts": [data]}

@@ -38,11 +38,16 @@ upstream Jupyter CadQuery Replay. Install the optional tools with
 `uv tool install --force 'cadskill[replay]'`, then restart CadSkill. Use
 `cadskill replay MODEL --version N --no-open` for an in-app preview URL.
 The URL opens the CadSkill Build steps panel, styled like Revisions.
-Selecting a step draws its geometry in the main canvas. Final model restores
-the complete saved design. No notebook viewer service is started.
+Assemblies start with an Assembly overview listing each part's recorded steps.
+Selecting a step draws its geometry in the main canvas, with the other parts
+faded for context. Assembly (Final model for one part) restores the complete
+saved design. Assembly placement and constraints are not recorded operations.
+No notebook viewer service is started.
 Replay inspects supported Workplane/Sketch chains; direct solids and STEP
 imports do not provide their original feature history. Feature changes are
-made by editing the Python recipe and rebuilding.
+made by editing the Python recipe and rebuilding. Retain Workplane/Sketch
+chains through builders, cutters and final assembly parts so Replay can
+inspect them; early extraction to raw Shapes disconnects their later history.
 
 New revisions preserve imported files and record the CAD runtime versions.
 Restoration uses those inputs, and reports incompatible runtime versions.

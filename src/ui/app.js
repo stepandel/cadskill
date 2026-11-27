@@ -21,7 +21,7 @@ function draw(data, refit = false) {
   const selected = view.selected?.id;
   const changed = setParts(data.parts);
   setSourceName(data.model + ' · v' + data.version);
-  select(view.parts.find((p) => p.id === selected) || null);
+  select(view.parts.find((p) => p.id === selected && !p.context) || null);
   if (first || changed || refit) fit();
   first = false;
   msg.hidden = true;
@@ -45,12 +45,13 @@ async function show(version) {
     const data = await (await ready).mesh(model, version);
     if (mine !== ticket) return;
     fullModel = data;
+    $('show-model').textContent = data.parts.length > 1 ? 'Assembly' : 'Final model';
     state.shown = version;
     draw(data);
     $('back').hidden = version === state.latest;
     $('back').textContent = 'Back to v' + state.latest;
     markHistory(state.latest, version);
-    setStepsSource(model, version);
+    setStepsSource(model, version, data.parts);
     $('build-steps').disabled = false;
     if (openStepsInitially) { openStepsInitially = false; setStepsOpen(true); }
   } catch (e) {
@@ -65,7 +66,8 @@ async function showStep(chain, step) {
   try {
     const data = await (await ready).stepMesh(state.model, state.shown, chain, step);
     if (mine !== ticket) return;
-    draw(data, true);
+    const context = fullModel.parts.filter((p) => p.id !== data.part_id).map((p) => ({ ...p, context: true }));
+    draw({ ...data, parts: [...context, ...data.parts] }, true);
     markStep(chain, step);
     $('show-model').hidden = false;
   } catch (e) {

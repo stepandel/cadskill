@@ -137,6 +137,7 @@
   #steps-message { margin: 0; padding: 10px 16px; font-size: 12px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
   #steps-message.bad { color: var(--bad); }
   .build-step { font: 400 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+  .step-detail { color: var(--muted); }
   .hint { color: var(--muted); font-size: 13px; padding: 8px; }
   .ver {
     display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%;
@@ -171,7 +172,7 @@
   <section id="steps-panel" aria-label="Build steps" hidden>
     <h2>Build steps <span id="step-count"></span><button type="button" id="close-steps" aria-label="Close build steps">×</button></h2>
     <div id="steps-source"></div>
-    <label id="steps-shape-label" hidden>Shape<select id="steps-shape"></select></label>
+    <label id="steps-shape-label" hidden>View<select id="steps-shape" aria-label="Build steps view"></select></label>
     <p id="steps-message" role="status" hidden></p>
     <ol id="steps-list"></ol>
   </section>

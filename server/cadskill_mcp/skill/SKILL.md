@@ -85,6 +85,15 @@ separate from the live preview.
 - Units are millimetres. Z is up.
 - Put every dimension in a named constant at the top, and derive the rest
   from them. A later "make it 10 mm longer" is then a one-line edit.
+- For new parts, keep builders and cutting tools as `cq.Workplane` or
+  `cq.Sketch` chains. Use Workplane `union`, `cut`, and `intersect`, and pass
+  the finished Workplanes to `show_object` or `Assembly.add`. Early `.val()`
+  extraction followed by raw Shape operations disconnects Replay history.
+- If a raw-shape API is needed, retain the preceding Workplane and describe
+  the coverage limit. Wrapping a finished Shape in `Workplane(obj=...)`
+  does not reconstruct its earlier operations. When refactoring an existing
+  design for history, validate a copy's solids, bounds, volume and geometry
+  differences before saving it under the same model name as a new revision.
 - Call `show_object(part, name="lid", options={"color": "steelblue"})` once
   per part. Names are how the commands refer to parts, so make them
   meaningful and keep them stable between versions.
@@ -141,13 +150,17 @@ only use their remaining imported files.
 **Build steps** inspect a single revision using upstream Jupyter CadQuery
 Replay. Use `cadskill replay MODEL --version N --no-open` and open its returned
 URL in the same in-app browser surface described above. The viewer's Build
-steps button opens a panel like Revisions. Selected operations use the same
-model canvas; Final model returns to the complete design. The returned command URL also
+steps button opens a panel like Revisions. Assembly is the default overview for
+multiple parts. A selected part's operations use the same model canvas, with
+the other parts faded for context. Assembly (Final model for one part) returns
+to the complete design; assembly placement and constraints are not recorded
+operations. The returned command URL also
 opens that page with Build steps selected. If the optional
 components are missing, the command provides their installation instructions.
 Replay supports recorded Workplane/Sketch chains; direct solids and imported
 STEP parts do not carry their original feature history. Do not promise a
-complete feature tree or rewrite a working model solely to suit Replay.
+complete feature tree. Refactor a working model for history when requested,
+using the geometry checks above.
 
 For "remove the holes but keep the longer pins", edit the current Python
 recipe and rebuild. Use named intermediate variables, and ordinary Boolean

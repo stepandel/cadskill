@@ -43,6 +43,11 @@ selector, render for a closer or sectioned view, measure to check a distance, ex
 Script rules: `cq` is already imported; units are millimetres; call
 show_object(part, name="...", options={"color": "steelblue"}) once per part; put dimensions in
 named constants at the top. A failed run changes nothing: the previous version stays current.
+Keep new part and cutter builders as Workplane/Sketch chains, including the finished parts
+added to an Assembly. Prefer Workplane union/cut/intersect: early .val() extraction and raw
+Shape operations disconnect Replay history. Wrapping a finished Shape in a Workplane does
+not recover earlier steps. For requested history refactors, compare a copy's solid validity,
+bounds, volume and bidirectional geometry differences before saving a new revision.
 
 If a tool answers that the CAD kernel is still starting, that is normal on first use (one to two
 minutes, once per computer). Tell the user it is warming up, wait about 20 seconds, and repeat the call.
@@ -589,7 +594,8 @@ def open_build_steps(model: Model = "default", version: int | None = None) -> Ca
             "model": model, "version": revision, "view": "steps"})}
         return _text(f"Build steps for '{data['model']}' version {data['version']}: {data['url']}\n"
                      "Open this URL in the host's browser panel. Build steps opens beside the existing canvas; "
-                     "select an operation to inspect it, or Final model to return to the complete model.",
+                     "select a part and operation to inspect it with the other parts faded. "
+                     "Assembly (Final model for one part) returns to the complete model.",
                      structuredContent=data)
     except Problem as exc:
         return _text(str(exc), error=True)

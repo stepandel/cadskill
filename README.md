@@ -246,9 +246,13 @@ to append to the existing model's history rather than creating a new model.
 **Build-step inspection.** Install the optional upstream recording library with
 `uv tool install --force 'cadskill[replay]'` (development: `uv sync --project server --extra replay`).
 Restart CadSkill after changing its installed dependencies. The live viewer's
-**Build steps** button opens a floating panel like Revisions. Selecting an
-operation draws its geometry in the existing model canvas; **Final model**
-restores the complete saved design. Sketch points, curves and solid stages
+**Build steps** button opens a floating panel like Revisions. Assemblies open
+with an **Assembly** overview listing each part and its recorded step count.
+Selecting a part's operation draws its geometry in the existing model canvas,
+with the other parts faded for context. **Assembly** restores the complete
+saved design (**Final model** for a single part). This is an overview of the
+assembled geometry, not a recorded timeline of assembly placement or constraints.
+Sketch points, curves and solid stages
 use that same canvas, controls and readout. Agents can use
 `cadskill replay MODEL --version N --no-open` or the MCP `open_build_steps`
 tool and open the returned CadSkill URL inside the host app. A version in
@@ -265,6 +269,15 @@ a viewer service. Direct solid operations and imported STEP parts do not
 supply their original feature history. Partial histories are labeled, and
 scripts retaining no replayable chain keep their final geometry available.
 Normal installs do not need the optional recording library.
+
+For new models, retain Workplane/Sketch chains through part builders,
+cutters and the finished objects added to an assembly. Use the fluent
+`union`, `cut` and `intersect` operations. Extracting `.val()` and continuing
+with raw Shape booleans disconnects those operations from Replay. Wrapping
+the resulting solid in a new Workplane cannot restore its previous chain.
+When refactoring an existing model for history, compare a copy against the
+original using valid solids, extents, volume and bidirectional geometry
+differences, then save the refactor as a new revision of the same design.
 
 **Rebuilding a revision.** New saves include copies of imported assets and
 an `environment.json` recording Python, CadQuery and the CAD kernel package.
@@ -405,7 +418,7 @@ To try the installer against your working copy instead of PyPI:
 
 ```sh
 (cd server && uv build)
-CADSKILL_PACKAGE=server/dist/cadskill-0.1.2-py3-none-any.whl sh install.sh
+CADSKILL_PACKAGE=server/dist/cadskill-0.1.3-py3-none-any.whl sh install.sh
 ```
 
 ### Release
@@ -416,7 +429,7 @@ in `src/ui/host.js`. Refresh the lockfiles and rebuild the viewer, commit,
 then push a matching tag:
 
 ```sh
-git tag v0.1.2 && git push origin v0.1.2
+git tag v0.1.3 && git push origin v0.1.3
 ```
 
 `.github/workflows/release.yml` builds the package and publishes it to PyPI

@@ -32,7 +32,7 @@ class ModelError(Exception):
 # ---------------------------------------------------------------- running a script
 
 def _shapes_of(obj):
-    """Turn anything a script may show into a list of (shape, name, color) tuples."""
+    """Flatten displayed objects, retaining their source and world placement."""
     import cadquery as cq
 
     if isinstance(obj, cq.Assembly):
@@ -46,19 +46,19 @@ def _shapes_of(obj):
                 loc = parent.loc * loc
                 parent = parent.parent
             color = node.color.toTuple()[:3] if node.color is not None else None
-            for shape, _, _ in shapes:
-                out.append((shape.moved(loc), name.split("/")[-1], color))
+            for shape, _, _, source, _ in shapes:
+                out.append((shape.moved(loc), name.split("/")[-1], color, source, loc))
         return out
     if isinstance(obj, cq.Workplane):
         shapes = [v for v in obj.vals() if isinstance(v, cq.Shape)]
         if not shapes:
             return []
-        return [(shapes[0] if len(shapes) == 1 else cq.Compound.makeCompound(shapes), None, None)]
+        return [(shapes[0] if len(shapes) == 1 else cq.Compound.makeCompound(shapes), None, None, obj, None)]
     if isinstance(obj, cq.Sketch):
         faces = [f for f in obj.faces().vals() if isinstance(f, cq.Shape)]
-        return [(cq.Compound.makeCompound(faces), None, None)] if faces else []
+        return [(cq.Compound.makeCompound(faces), None, None, obj, None)] if faces else []
     if isinstance(obj, cq.Shape):
-        return [(obj, None, None)]
+        return [(obj, None, None, obj, None)]
     if isinstance(obj, (list, tuple)):
         return [s for item in obj for s in _shapes_of(item)]
     raise ModelError(f"show_object() cannot display a {type(obj).__name__}. Pass a Workplane, a Shape or an Assembly.")
@@ -102,13 +102,10 @@ def _execute(code: str, model_dir: str, keep_objects: bool = False) -> dict:
     import cadquery as cq
 
     shown: list[tuple] = []
-    objects = []
 
     def show_object(obj, name=None, options=None, **_):
-        if keep_objects:
-            objects.append((obj, name, options))
-        for shape, own_name, own_color in _shapes_of(obj):
-            shown.append((shape, name or own_name, _color(options) or own_color))
+        for shape, own_name, own_color, source, location in _shapes_of(obj):
+            shown.append((shape, name or own_name, _color(options) or own_color, source, location))
 
     def asset(filename: str) -> str:
         path = os.path.join(model_dir, "assets", filename)
@@ -135,16 +132,19 @@ def _execute(code: str, model_dir: str, keep_objects: bool = False) -> dict:
         os.chdir(old_cwd)
 
     parts, used = [], set()
-    for i, (shape, name, color) in enumerate(shown):
+    for i, (shape, name, color, source, location) in enumerate(shown):
         base = name or (f"part{i + 1}" if len(shown) > 1 else "part")
         name, n = base, 2
         while name in used:                  # names are how tools refer to parts, so they must be unique
             name, n = f"{base}-{n}", n + 1
         used.add(name)
-        parts.append({"name": name, "shape": shape, "color": color})
+        part = {"name": name, "shape": shape, "color": color}
+        if keep_objects:
+            part.update(source=source, location=location)
+        parts.append(part)
     result = {"parts": parts, "stdout": out.getvalue()[-MAX_OUTPUT:]}
     if keep_objects:
-        result.update(shown=objects, env=env)
+        result["env"] = env
     return result
 
 
