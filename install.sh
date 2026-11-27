@@ -11,7 +11,7 @@
 # Run it again to update. It uses uv (https://docs.astral.sh/uv/) to fetch Python
 # and the CAD libraries into a folder of their own, and installs uv first if it
 # is missing. Set CADSKILL_PACKAGE to install something other than the latest
-# release from PyPI: a version ("cadskill==0.1.0"), a wheel, or a git URL.
+# release from PyPI: a version ("cadskill==0.1.1"), a wheel, or a git URL.
 set -eu
 
 say() { printf '%s\n' "$*"; }

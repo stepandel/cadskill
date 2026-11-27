@@ -1,6 +1,6 @@
 {
   "name": "cadskill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "3D CAD for Claude. Claude builds real solid models by writing CadQuery scripts, checks them with measurements and rendered views, and exports STEP, STL and more.",
   "mcpServers": {
     "cadskill": {

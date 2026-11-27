@@ -355,16 +355,18 @@ To try the installer against your working copy instead of PyPI:
 
 ```sh
 (cd server && uv build)
-CADSKILL_PACKAGE=server/dist/cadskill-0.1.0-py3-none-any.whl sh install.sh
+CADSKILL_PACKAGE=server/dist/cadskill-0.1.1-py3-none-any.whl sh install.sh
 ```
 
 ### Release
 
-Bump `version` in `server/pyproject.toml` (and `.claude-plugin/plugin.json`),
-commit, then push a matching tag:
+Bump `version` in `server/pyproject.toml`, `plugin.json`,
+`.claude-plugin/plugin.json`, `package.json` and the viewer's App metadata
+in `src/ui/host.js`. Refresh the lockfiles and rebuild the viewer, commit,
+then push a matching tag:
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.1.1 && git push origin v0.1.1
 ```
 
 `.github/workflows/release.yml` builds the package and publishes it to PyPI
